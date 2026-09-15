@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Finanças do Casal</title>
+
+<!-- ============ PWA: Manifest e Ícones (Fase 3 · Item 3) ============ -->
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+<!-- Meta tags para instalação como app no iOS (Safari não lê o manifest.json totalmente) -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Finanças" />
+
+<!-- Meta tag para instalação como app no Android/Chrome -->
+<meta name="mobile-web-app-capable" content="yes" />
+
+<meta name="theme-color" content="#0f172a" id="metaThemeColor" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --color-primary: #22d3ee;
+    --color-primary-rgb: 34,211,238;
+    --color-secondary: #3b82f6;
+    --color-success: #34d399;
+    --color-danger: #f87171;
+    --color-warning: #fbbf24;
+    --on-primary: #0f172a;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --bg-app: #020617;
+    --bg-header: rgba(2,6,23,.9);
+    --bg-surface: #111827;
+    --bg-surface-2: #1f2937;
+    --bg-surface-3: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-color: #1f2937;
+    --shadow-brand: 0 8px 24px rgba(var(--color-primary-rgb), .35);
+  }
+  [data-theme="light"] {
+    --bg-app: #f4f6fb; --bg-header: rgba(255,255,255,.92); --bg-surface: #ffffff;
+    --bg-surface-2: #f1f5f9; --bg-surface-3: #e2e8f0; --text-primary: #0f172a;
+    --text-secondary: #475569; --text-muted: #94a3b8; --border-color: #e2e8f0;
+  }
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg-app); }
+  body { font-family: var(--font-family); color: var(--text-primary); transition: background-color .25s ease, color .25s ease; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-surface-3); border-radius: 4px; }
+  .view { display: none; } .view.active { display: block; }
+  .app-header { background: var(--bg-header); border-bottom: 1px solid var(--border-color); backdrop-filter: blur(10px); }
+  .app-bottomnav { background: var(--bg-header); border-top: 1px solid var(--border-color); backdrop-filter: blur(10px); }
+  .nav-btn { transition: all .15s ease; color: var(--text-muted); }
+  .nav-btn.active { color: var(--color-primary); }
+  .nav-btn.active .nav-icon-wrap { background: rgba(var(--color-primary-rgb), .12); }
+  .card { background: var(--bg-surface); border: 1px solid var(--border-color); }
+  .surface-2 { background: var(--bg-surface-2); }
+  .text-secondary { color: var(--text-secondary); } .text-muted { color: var(--text-muted); }
+  .brand-bg { background: var(--color-primary); color: var(--on-primary); }
+  .brand-text { color: var(--color-primary); }
+  .brand-gradient { background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); color: var(--on-primary); }
+  .brand-ring { box-shadow: 0 0 0 2px var(--color-primary); }
+  .fab { box-shadow: var(--shadow-brand); }
+  .toast { animation: slideUp .25s ease-out; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .spinner { border: 3px solid rgba(148,163,184,.25); border-top-color: var(--color-primary); border-radius: 50%; width: 22px; height: 22px; animation: spin .7s linear infinite; }
+  .spinner-sm { border: 2px solid rgba(148,163,184,.25); border-top-color: var(--color-primary); border-radius: 50%; width: 12px; height: 12px; animation: spin .7s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .modal-backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+  .segmented { background: var(--bg-surface-2); border: 1px solid var(--border-color); }
+  .segmented button.active-seg { background: var(--color-primary); color: var(--on-primary); font-weight: 600; }
+  .seg-item { color: var(--text-secondary); }
+  input, select, textarea { background: var(--bg-surface-2); border-color: var(--border-color) !important; color: var(--text-primary); }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: var(--icon-filter, none); }
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+  :root:not([data-theme="light"]) input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+  .chip { transition: all .15s ease; }
+  .toggle-switch { width: 42px; height: 24px; border-radius: 999px; background: var(--bg-surface-3); position:relative; cursor:pointer; transition: background .2s; flex-shrink:0; }
+  .toggle-switch.on { background: var(--color-primary); }
+  .toggle-switch .dot { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:white; transition: transform .2s; }
+  .toggle-switch.on .dot { transform: translateX(18px); }
+  .toggle-switch.sm { width: 34px; height: 20px; }
+  .toggle-switch.sm .dot { width:16px; height:16px; }
+  .toggle-switch.sm.on .dot { transform: translateX(14px); }
+  .pulse-dot { width:8px; height:8px; border-radius:50%; background: var(--color-success); display:inline-block; animation: pulseDot 1.6s ease infinite; }
+  @keyframes pulseDot { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  .skeleton { background: linear-gradient(90deg, var(--bg-surface-2) 25%, var(--bg-surface-3) 37%, var(--bg-surface-2) 63%); background-size: 400% 100%; animation: skeleton-loading 1.4s ease infinite; border-radius: 8px; }
+  @keyframes skeleton-loading { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  .empty-state { text-align:center; padding: 28px 16px; }
+  .empty-state .empty-icon { font-size: 40px; line-height:1; margin-bottom: 10px; opacity:.85; }
+  .empty-state .empty-title { font-size: 14px; font-weight:600; color: var(--text-primary); margin-bottom:4px; }
+  .empty-state .empty-sub { font-size: 12px; color: var(--text-muted); max-width: 280px; margin: 0 auto; }
+  .icon-grid-btn { font-size: 20px; width: 42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius: 10px; background: var(--bg-surface-2); border: 1px solid var(--border-color); transition: all .12s ease; }
+  .icon-grid-btn.selected { background: rgba(var(--color-primary-rgb), .18); border-color: var(--color-primary); transform: scale(1.06); }
+  .swatch { width: 34px; height: 34px; border-radius: 999px; border: 2px solid transparent; cursor:pointer; transition: all .12s ease; flex-shrink:0; }
+  .swatch.selected { border-color: var(--text-primary); transform: scale(1.12); }
+  .theme-preset-card { border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; cursor:pointer; transition: all .15s ease; background: var(--bg-surface-2); }
+  .theme-preset-card.selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+  .theme-preset-dot { width: 28px; height: 28px; border-radius: 50%; }
+  .badge-parcela { background: rgba(168,85,247,.15); color:#a855f7; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; white-space:nowrap; }
+  .badge-atrasado { background: rgba(248,113,113,.18); color:#ef4444; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; }
+  .badge-pendente { background: rgba(245,158,11,.15); color:#d97706; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
+  .badge-essencial { background: rgba(34,197,94,.15); color:#22c55e; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
+  .badge-superfluo { background: rgba(251,146,60,.15); color:#f97316; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
+  .preview-parcela-item { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; border-radius:8px; background: var(--bg-surface-2); font-size:12px; }
+  .debt-card { background: var(--bg-surface-2); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; }
+  .progress-track { width:100%; background: var(--bg-surface-3); border-radius:999px; height:7px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:999px; transition: width .3s ease; }
+  .tag-chip { background: rgba(var(--color-primary-rgb),.15); color: var(--color-primary); padding:4px 10px; border-radius:999px; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .tag-chip button { font-weight:700; opacity:.7; line-height:1; }
+  .tag-pill-filter { font-size:10px; padding:2px 8px; border-radius:999px; background: var(--bg-surface-3); color: var(--text-secondary); }
+  .widget-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border-color); }
+  .widget-row:last-child { border-bottom:none; }
+  .saved-filter-chip { font-size:11px; padding:5px 10px; border-radius:999px; background: var(--bg-surface-2); border:1px solid var(--border-color); display:flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
+  .saved-filter-chip button { opacity:.6; font-weight:700; }
+  .install-banner { position:fixed; left:12px; right:12px; bottom:calc(84px + var(--safe-bottom)); z-index:40; background: var(--bg-surface); border:1px solid var(--border-color); border-radius:16px; padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); display:flex; align-items:center; gap:10px; }
+  .install-banner.hidden { display:none; }
+</style>
+</head>
+<body class="min-h-screen pb-24">
+
+<header class="app-header sticky top-0 z-30">
+  <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2 min-w-0">
+      <div id="appLogoWrap" class="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center text-lg shrink-0 overflow-hidden">
+        <span id="appLogoEmoji">💰</span>
+        <img id="appLogoImg" class="hidden w-full h-full object-cover" alt="Logo" />
+      </div>
+      <div class="min-w-0">
+        <h1 id="appTitleHeader" class="text-base font-bold leading-none truncate">Finanças do Casal</h1>
+        <p id="connStatus" class="text-[11px] text-secondary leading-none mt-1">Verificando conexão…</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 shrink-0">
+      <button id="btnSync" title="Sincronizar agora" class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/10 active:scale-95 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <button data-nav="config" class="nav-jump w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/10 active:scale-95 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.61.22 1.24.36 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="offlineBanner" class="hidden text-xs px-4 py-1.5 text-center border-t" style="background: rgba(245,158,11,.12); color:#d97706; border-color: rgba(245,158,11,.25);">
+    ⚠️ Modo offline — exibindo dados em cache. Suas alterações serão sincronizadas ao reconectar.
+  </div>
+</header>
+
+<main class="max-w-2xl mx-auto px-4 pt-4">
+
+  <!-- ---------- DASHBOARD ---------- -->
+  <section id="view-dashboard" class="view active space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold">Visão Geral</h2>
+      <select id="dashPeriodo" class="border rounded-lg text-sm px-2 py-1.5">
+        <option value="atual">Mês atual</option>
+        <option value="anterior">Mês anterior</option>
+        <option value="personalizado">Personalizado…</option>
+      </select>
+    </div>
+    <div id="dashPersonalizado" class="hidden grid grid-cols-2 gap-2 -mt-2">
+      <input type="date" id="dashDataIni" class="border rounded-lg text-sm px-2 py-1.5" />
+      <input type="date" id="dashDataFim" class="border rounded-lg text-sm px-2 py-1.5" />
+    </div>
+
+    <div id="skeletonDashboard" class="hidden space-y-4">
+      <div class="card rounded-2xl p-4"><div class="skeleton h-4 w-32 mb-3"></div><div class="skeleton h-8 w-40"></div></div>
+      <div class="grid grid-cols-2 gap-3"><div class="card rounded-2xl p-3 h-20 skeleton"></div><div class="card rounded-2xl p-3 h-20 skeleton"></div></div>
+      <div class="card rounded-2xl p-4"><div class="skeleton h-40 w-full"></div></div>
+    </div>
+
+    <div id="dashboardConteudo" class="space-y-4">
+      <div class="card rounded-2xl p-4">
+        <p class="text-xs text-secondary">Saldo do período (Receitas − Despesas)</p>
+        <p id="saldoGeral" class="text-3xl font-extrabold mt-1">R$ 0,00</p>
+        <div class="flex gap-4 mt-3 text-xs">
+          <div><span class="font-semibold" style="color:var(--color-success)">▲ Receitas</span><br><span id="totalReceitas" class="font-bold text-sm">R$ 0,00</span></div>
+          <div><span class="font-semibold" style="color:var(--color-danger)">▼ Despesas</span><br><span id="totalDespesas" class="font-bold text-sm">R$ 0,00</span></div>
+        </div>
+      </div>
+
+      <div id="panelSaldosPessoa">
+        <div id="saldosPorPessoa" class="grid grid-cols-2 gap-3"></div>
+      </div>
+
+      <div id="panelDividas" class="card rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-sm font-semibold">💳 Dívidas &amp; Parcelamentos</p>
+        </div>
+        <p id="compromissoMesResumo" class="text-xs text-secondary mb-3"></p>
+        <div id="listaDividas" class="space-y-3"></div>
+        <div id="dividasVazio" class="hidden empty-state">
+          <div class="empty-icon">💳</div>
+          <p class="empty-title">Nenhuma compra parcelada em aberto</p>
+          <p class="empty-sub">Ao registrar uma compra parcelada em "Nova Transação", o acompanhamento aparecerá aqui.</p>
+        </div>
+      </div>
+
+      <div id="panelOrcamento" class="card rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-sm font-semibold">🎯 Orçamento vs. Realizado</p>
+          <span class="text-[10px] text-muted">Mês atual</span>
+        </div>
+        <p class="text-xs text-secondary mb-3">Compare o quanto já foi gasto em relação ao limite definido por categoria.</p>
+        <div id="listaOrcamento" class="space-y-3"></div>
+        <div id="orcamentoVazio" class="hidden empty-state">
+          <div class="empty-icon">🎯</div>
+          <p class="empty-title">Nenhum orçamento definido</p>
+          <p class="empty-sub">Defina um "Orçamento mensal" ao editar uma categoria em Configurações para acompanhar aqui.</p>
+        </div>
+      </div>
+
+      <div id="panelQuemPagou" class="card rounded-2xl p-4">
+        <p class="text-sm font-semibold mb-3">Quem pagou o quê no período</p>
+        <div id="quemPagouQue" class="space-y-3"></div>
+      </div>
+
+      <div id="panelEssencial" class="card rounded-2xl p-4">
+        <p class="text-sm font-semibold mb-3">⚖️ Essencial vs. Supérfluo</p>
+        <div id="essencialConteudo"></div>
+        <div id="essencialVazio" class="hidden empty-state">
+          <div class="empty-icon">⚖️</div>
+          <p class="empty-title">Nenhuma despesa classificada</p>
+          <p class="empty-sub">Ao lançar uma transação, marque-a como Essencial ou Supérfluo para ver o comparativo aqui.</p>
+        </div>
+      </div>
+
+      <div id="panelChartCategorias" class="card rounded-2xl p-4">
+        <p class="text-sm font-semibold mb-3">Despesas por Categoria</p>
+        <div class="relative" style="height:240px;"><canvas id="chartCategorias"></canvas></div>
+        <div id="chartCategoriasVazio" class="hidden empty-state">
+          <div class="empty-icon">🧾</div>
+          <p class="empty-title">Nenhuma despesa neste período</p>
+          <p class="empty-sub">Assim que você lançar uma despesa, o gráfico de categorias aparece aqui automaticamente.</p>
+        </div>
+      </div>
+
+      <div id="panelChartEvolucao" class="card rounded-2xl p-4">
+        <p class="text-sm font-semibold mb-3">Evolução Mensal (últimos 6 meses)</p>
+        <div class="relative" style="height:220px;"><canvas id="chartEvolucao"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- NOVA TRANSAÇÃO ---------- -->
+  <section id="view-transacao" class="view space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 id="tituloFormTransacao" class="text-lg font-bold">Nova Transação</h2>
+      <button data-nav="dashboard" class="text-secondary text-sm">Cancelar</button>
+    </div>
+
+    <div id="bannerParcelaInfo" class="hidden text-xs px-3 py-2 rounded-lg" style="background: rgba(168,85,247,.12); color:#a855f7; border:1px solid rgba(168,85,247,.25);"></div>
+
+    <form id="formTransacao" class="space-y-4">
+      <input type="hidden" id="txId" />
+      <div class="segmented grid grid-cols-3 rounded-xl p-1 gap-1">
+        <button type="button" data-tipo="Despesa" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Despesa</button>
+        <button type="button" data-tipo="Receita" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Receita</button>
+        <button type="button" data-tipo="Transferência" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Transf.</button>
+      </div>
+
+      <div id="parcelamentoToggleWrap" class="flex items-center justify-between surface-2 rounded-xl px-3 py-2.5">
+        <div>
+          <p class="text-sm font-medium">🔁 Compra parcelada</p>
+          <p class="text-[11px] text-muted">Divide o valor em N parcelas mensais</p>
+        </div>
+        <div id="toggleParcelamento" class="toggle-switch"><div class="dot"></div></div>
+      </div>
+
+      <div>
+        <label id="labelTxValor" class="text-xs text-secondary mb-1 block">Valor (R$)</label>
+        <input required type="number" step="0.01" min="0.01" id="txValor" placeholder="0,00" class="w-full border rounded-xl px-4 py-3 text-2xl font-bold" />
+        <p id="captionTxValor" class="hidden text-[11px] text-muted mt-1">Este valor total será dividido entre a entrada (se houver) e as parcelas abaixo.</p>
+      </div>
+
+      <div id="parcelamentoCamposWrap" class="hidden space-y-4 surface-2 rounded-xl p-3">
+        <div>
+          <label class="text-xs text-secondary mb-1 block">Valor de entrada (opcional)</label>
+          <input type="number" step="0.01" min="0" id="txValorEntrada" placeholder="0,00" class="w-full border rounded-lg px-3 py-2.5" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-secondary mb-1 block">Número de parcelas</label>
+            <input type="number" min="1" max="60" step="1" id="txNumeroParcelas" value="2" class="w-full border rounded-lg px-3 py-2.5" />
+          </div>
+          <div>
+            <label class="text-xs text-secondary mb-1 block">Data da 1ª parcela</label>
+            <input type="date" id="txDataPrimeiraParcela" class="w-full border rounded-lg px-3 py-2.5" />
+          </div>
+        </div>
+        <p class="text-[11px] text-muted">💡 A data da 1ª parcela pode ser diferente da data da compra — útil quando a compra cai após o fechamento da fatura do cartão.</p>
+        <div>
+          <p class="text-xs text-secondary mb-1.5">Prévia das parcelas</p>
+          <div id="previewParcelas" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Data</label>
+        <input required type="date" id="txData" class="w-full border rounded-xl px-4 py-2.5" />
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Quem pagou / recebeu</label>
+        <div id="txPessoaChips" class="flex gap-2 flex-wrap"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-secondary mb-1 block">Categoria</label>
+          <select id="txCategoria" required class="w-full border rounded-xl px-3 py-2.5"></select>
+        </div>
+        <div>
+          <label class="text-xs text-secondary mb-1 block">Subcategoria</label>
+          <select id="txSubcategoria" class="w-full border rounded-xl px-3 py-2.5"></select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Descrição</label>
+        <input type="text" id="txDescricao" maxlength="120" placeholder="Ex: Supermercado do mês" class="w-full border rounded-xl px-4 py-2.5" />
+      </div>
+
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Tags (opcional)</label>
+        <input type="text" id="txTagInput" placeholder="Digite e pressione Enter…" class="w-full border rounded-xl px-4 py-2.5" />
+        <div id="txTagsChips" class="flex gap-1.5 flex-wrap mt-2"></div>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Essencialidade</label>
+        <div class="segmented grid grid-cols-3 rounded-xl p-1 gap-1">
+          <button type="button" data-essencial="" class="seg-essencial seg-item py-2 rounded-lg text-xs font-medium">— Não classificado</button>
+          <button type="button" data-essencial="Essencial" class="seg-essencial seg-item py-2 rounded-lg text-xs font-medium">✅ Essencial</button>
+          <button type="button" data-essencial="Supérfluo" class="seg-essencial seg-item py-2 rounded-lg text-xs font-medium">🎈 Supérfluo</button>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Método de Pagamento</label>
+        <select id="txMetodo" class="w-full border rounded-xl px-3 py-2.5">
+          <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência Bancária</option><option>Outro</option>
+        </select>
+      </div>
+      <div id="statusWrap">
+        <label class="text-xs text-secondary mb-1 block">Status</label>
+        <div class="segmented grid grid-cols-2 rounded-xl p-1 gap-1">
+          <button type="button" data-status="Pago" class="seg-status seg-item py-2 rounded-lg text-sm font-medium">✅ Pago</button>
+          <button type="button" data-status="Pendente" class="seg-status seg-item py-2 rounded-lg text-sm font-medium">⏳ Pendente</button>
+        </div>
+      </div>
+
+      <button type="submit" id="btnSalvarTx" class="w-full brand-bg font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 active:scale-[.98] transition">
+        <span id="btnSalvarTxLabel">Salvar Transação</span>
+      </button>
+    </form>
+  </section>
+
+  <!-- ---------- EXTRATO ---------- -->
+  <section id="view-extrato" class="view space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold">Extrato</h2>
+      <div class="segmented flex rounded-lg p-1 text-xs">
+        <button id="tabTransacoes" class="px-3 py-1.5 rounded-md font-semibold">Transações</button>
+        <button id="tabLixeira" class="px-3 py-1.5 rounded-md font-semibold seg-item">Lixeira</button>
+      </div>
+    </div>
+
+    <div id="filtrosExtrato" class="card rounded-2xl p-3 space-y-2">
+      <input type="text" id="filtroBusca" placeholder="🔎 Buscar por descrição…" class="w-full border rounded-lg px-3 py-2 text-sm" />
+      <div class="grid grid-cols-2 gap-2">
+        <select id="filtroPeriodo" class="border rounded-lg text-sm px-2 py-2">
+          <option value="todos">Todo o período</option>
+          <option value="atual" selected>Mês atual</option>
+          <option value="anterior">Mês anterior</option>
+          <option value="personalizado">Personalizado…</option>
+        </select>
+        <select id="filtroPessoa" class="border rounded-lg text-sm px-2 py-2">
+          <option value="todas">Todas as pessoas</option>
+        </select>
+      </div>
+      <div id="filtroPersonalizadoWrap" class="hidden grid grid-cols-2 gap-2">
+        <input type="date" id="filtroDataIni" class="border rounded-lg text-sm px-2 py-2" />
+        <input type="date" id="filtroDataFim" class="border rounded-lg text-sm px-2 py-2" />
+      </div>
+      <select id="filtroCategoria" class="w-full border rounded-lg text-sm px-2 py-2">
+        <option value="todas">Todas as categorias</option>
+      </select>
+
+      <button id="btnFiltrosAvancados" type="button" class="text-xs brand-text font-semibold pt-1">🔧 Filtros avançados</button>
+      <div id="filtrosAvancadosWrap" class="hidden space-y-2 pt-1 border-t border-themed mt-1">
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <select id="filtroMetodo" class="border rounded-lg text-sm px-2 py-2">
+            <option value="todos">Todo método</option>
+            <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência Bancária</option><option>Outro</option>
+          </select>
+          <select id="filtroStatusExt" class="border rounded-lg text-sm px-2 py-2">
+            <option value="todos">Todo status</option>
+            <option value="Pago">✅ Pago</option>
+            <option value="Pendente">⏳ Pendente</option>
+            <option value="Atrasado">🔴 Atrasado</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" id="filtroValorMin" placeholder="Valor mínimo" step="0.01" class="border rounded-lg text-sm px-2 py-2" />
+          <input type="number" id="filtroValorMax" placeholder="Valor máximo" step="0.01" class="border rounded-lg text-sm px-2 py-2" />
+        </div>
+        <select id="filtroTag" class="w-full border rounded-lg text-sm px-2 py-2">
+          <option value="todas">Todas as tags</option>
+        </select>
+        <select id="filtroEssencial" class="w-full border rounded-lg text-sm px-2 py-2">
+          <option value="todos">Essencial e Supérfluo</option>
+          <option value="Essencial">Somente Essencial</option>
+          <option value="Supérfluo">Somente Supérfluo</option>
+          <option value="">Somente não classificados</option>
+        </select>
+        <div class="flex items-center justify-between surface-2 rounded-lg px-3 py-2">
+          <span class="text-xs">Somente parceladas</span>
+          <div id="toggleSomenteParceladas" class="toggle-switch sm"><div class="dot"></div></div>
+        </div>
+        <div>
+          <label class="text-[11px] text-secondary mb-1 block">Ordenar por</label>
+          <select id="selectOrdenacao" class="w-full border rounded-lg text-sm px-2 py-2">
+            <option value="data_desc">Data (mais recente primeiro)</option>
+            <option value="data_asc">Data (mais antiga primeiro)</option>
+            <option value="valor_desc">Maior valor primeiro</option>
+            <option value="valor_asc">Menor valor primeiro</option>
+            <option value="categoria_asc">Categoria (A-Z)</option>
+          </select>
+        </div>
+
+        <div class="pt-1">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] text-secondary font-semibold">⭐ Filtros Salvos</span>
+            <button id="btnSalvarFiltroAtual" type="button" class="text-[11px] brand-text font-semibold">+ Salvar atual</button>
+          </div>
+          <div id="listaFiltrosSalvos" class="flex gap-1.5 flex-wrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="extratoResumo" class="text-xs text-secondary px-1"></div>
+    <div id="skeletonExtrato" class="hidden space-y-2">
+      <div class="card rounded-xl p-3 h-16 skeleton"></div>
+      <div class="card rounded-xl p-3 h-16 skeleton"></div>
+      <div class="card rounded-xl p-3 h-16 skeleton"></div>
+    </div>
+    <div id="listaExtrato" class="space-y-2"></div>
+    <button id="btnCarregarMais" class="hidden w-full py-3 text-sm brand-text font-semibold">Carregar mais</button>
+    <div id="extratoVazio" class="hidden empty-state">
+      <div class="empty-icon">📭</div>
+      <p class="empty-title">Nenhuma transação encontrada</p>
+      <p class="empty-sub">Tente ajustar os filtros acima, ou toque no botão "+" para lançar sua primeira transação deste período.</p>
+    </div>
+  </section>
+
+  <!-- ---------- CONFIGURAÇÕES ---------- -->
+  <section id="view-config" class="view space-y-5">
+    <h2 class="text-lg font-bold">Configurações</h2>
+
+    <div class="card rounded-2xl p-4 space-y-4">
+      <p class="text-sm font-semibold">🎨 Aparência</p>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Nome do aplicativo</label>
+        <input type="text" id="apAppName" maxlength="30" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-2 block">Logotipo</label>
+        <div class="flex items-center gap-3">
+          <div id="apLogoPreviewWrap" class="w-14 h-14 rounded-2xl brand-gradient flex items-center justify-center text-2xl overflow-hidden shrink-0">
+            <span id="apLogoPreviewEmoji">💰</span>
+            <img id="apLogoPreviewImg" class="hidden w-full h-full object-cover" alt="Logo" />
+          </div>
+          <div class="flex-1 grid grid-cols-2 gap-2">
+            <button id="btnEscolherEmoji" type="button" class="border rounded-lg py-2 text-xs font-semibold">Escolher Emoji</button>
+            <label class="border rounded-lg py-2 text-xs font-semibold text-center cursor-pointer">
+              Enviar Imagem
+              <input type="file" id="apLogoUpload" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
+            </label>
+          </div>
+        </div>
+        <button id="btnRemoverLogoImg" class="hidden text-xs text-rose-400 mt-2">Remover imagem e voltar ao emoji</button>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-2 block">Tema de cor</label>
+        <div id="themePresetsGrid" class="grid grid-cols-3 gap-2"></div>
+        <button id="btnTemaPersonalizado" class="text-xs brand-text font-semibold mt-2">+ Personalizar cores manualmente</button>
+        <div id="temaPersonalizadoWrap" class="hidden grid grid-cols-2 gap-3 mt-2">
+          <div><label class="text-[11px] text-secondary mb-1 block">Cor primária</label><input type="color" id="apCorPrimaria" class="w-full h-10 border rounded-lg" /></div>
+          <div><label class="text-[11px] text-secondary mb-1 block">Cor secundária</label><input type="color" id="apCorSecundaria" class="w-full h-10 border rounded-lg" /></div>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-2 block">Modo de exibição</label>
+        <div class="segmented grid grid-cols-3 rounded-xl p-1 gap-1">
+          <button type="button" data-mode="dark" class="seg-mode seg-item py-2 rounded-lg text-xs font-medium">🌙 Escuro</button>
+          <button type="button" data-mode="light" class="seg-mode seg-item py-2 rounded-lg text-xs font-medium">☀️ Claro</button>
+          <button type="button" data-mode="auto" class="seg-mode seg-item py-2 rounded-lg text-xs font-medium">🔄 Automático</button>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Fonte</label>
+        <select id="apFonte" class="w-full border rounded-lg px-3 py-2.5 text-sm">
+          <option value="system">Padrão do Sistema</option>
+          <option value="Inter">Inter (moderna)</option>
+          <option value="Poppins">Poppins (arredondada)</option>
+          <option value="Sora">Sora (geométrica)</option>
+          <option value="Nunito">Nunito (amigável)</option>
+        </select>
+      </div>
+      <button id="btnResetarAparencia" class="w-full border rounded-lg py-2.5 text-xs font-semibold text-secondary">Restaurar Aparência Padrão</button>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-1">
+      <p class="text-sm font-semibold mb-1">📊 Personalizar Dashboard</p>
+      <p class="text-xs text-secondary mb-2">Escolha quais indicadores aparecem na tela inicial. O card de "Saldo do período" é sempre exibido.</p>
+      <div id="listaWidgetsDashboard"></div>
+    </div>
+
+    <!-- PWA: Instalar App (Fase 3 · Item 3) -->
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">📲 Instalar como Aplicativo</p>
+      <p class="text-xs text-secondary" id="pwaStatusTexto">Verificando suporte de instalação…</p>
+      <button id="btnInstalarPWA" class="hidden w-full brand-bg rounded-lg py-2.5 text-sm font-bold">Instalar Finanças do Casal</button>
+      <div id="pwaInstrucoesManual" class="hidden text-xs surface-2 rounded-lg p-3 space-y-2"></div>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">🔗 Conexão com Google Sheets</p>
+      <p class="text-xs text-secondary">Cole aqui a URL do Web App publicado no Google Apps Script.</p>
+      <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/XXXXX/exec" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+      <div class="flex gap-2">
+        <button id="btnTestarConexao" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Testar Conexão</button>
+        <button id="btnSalvarApiUrl" class="flex-1 brand-bg rounded-lg py-2.5 text-sm font-bold">Salvar</button>
+      </div>
+      <p id="apiTestResult" class="text-xs"></p>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">🩺 Diagnóstico do Servidor</p>
+      <p class="text-xs text-secondary">Verifica diretamente na planilha quantas linhas existem em cada aba.</p>
+      <button id="btnDiagnostico" class="w-full border rounded-lg py-2.5 text-sm font-semibold">Verificar Planilha Agora</button>
+      <div id="diagnosticoResultado" class="hidden text-xs surface-2 rounded-lg p-3 space-y-1"></div>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">🛠️ Reparar Dados Padrão</p>
+      <p class="text-xs text-secondary">Use se a planilha ficou incompleta por uma falha de conexão anterior.</p>
+      <div class="flex gap-2">
+        <button id="btnRepararCategorias" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar Categorias</button>
+        <button id="btnRepararPessoas" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar Pessoas</button>
+      </div>
+      <p id="reparoResultado" class="text-xs"></p>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">📱 Sincronização entre Dispositivos</p>
+      <p class="text-xs text-secondary">Busca automaticamente atualizações feitas em outros aparelhos.</p>
+      <div class="flex items-center justify-between surface-2 rounded-xl px-3 py-2.5">
+        <span class="text-sm">Sincronização automática</span>
+        <div id="toggleAutoSync" class="toggle-switch"><div class="dot"></div></div>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Frequência de verificação</label>
+        <select id="selectSyncInterval" class="w-full border rounded-lg px-3 py-2.5 text-sm">
+          <option value="15000">A cada 15 segundos (mais pesado)</option>
+          <option value="30000" selected>A cada 30 segundos (recomendado)</option>
+          <option value="60000">A cada 1 minuto</option>
+          <option value="120000">A cada 2 minutos</option>
+        </select>
+      </div>
+      <p id="autoSyncStatus" class="text-xs text-muted flex items-center gap-1.5"></p>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">👥 Pessoas</p>
+        <button id="btnAddPessoa" class="brand-text text-xs font-semibold">+ Adicionar</button>
+      </div>
+      <div id="listaPessoasConfig" class="space-y-2"></div>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">🏷️ Categorias</p>
+        <button id="btnAddCategoria" class="brand-text text-xs font-semibold">+ Adicionar</button>
+      </div>
+      <div id="listaCategoriasConfig" class="space-y-3"></div>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">💾 Dados Locais</p>
+      <p class="text-xs text-secondary">Última sincronização: <span id="ultimaSincInfo">nunca</span></p>
+      <p class="text-xs text-secondary">Pendências na fila de sincronização: <span id="filaPendenteInfo">0</span></p>
+      <div class="flex gap-2">
+        <button id="btnForcarSync" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Sincronizar Agora</button>
+        <button id="btnLimparCache" class="flex-1 rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Limpar Cache</button>
+      </div>
+      <button id="btnLimparFila" class="w-full rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Descartar Fila Pendente</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="app-bottomnav fixed bottom-0 left-0 right-0 z-30" style="padding-bottom:var(--safe-bottom)">
+  <div class="max-w-2xl mx-auto grid grid-cols-4 relative">
+    <button data-nav="dashboard" class="nav-btn active flex flex-col items-center gap-1 py-2.5">
+      <span class="nav-icon-wrap w-9 h-9 rounded-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M9 21V9h6v12"/></svg></span>
+      <span class="text-[10px] font-medium">Início</span>
+    </button>
+    <button data-nav="extrato" class="nav-btn flex flex-col items-center gap-1 py-2.5">
+      <span class="nav-icon-wrap w-9 h-9 rounded-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h6"/></svg></span>
+      <span class="text-[10px] font-medium">Extrato</span>
+    </button>
+    <div class="flex items-center justify-center">
+      <button id="fabNovaTransacao" class="fab brand-gradient -mt-7 w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+    <button data-nav="config" class="nav-btn flex flex-col items-center gap-1 py-2.5 col-start-4">
+      <span class="nav-icon-wrap w-9 h-9 rounded-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.61.22 1.24.36 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <span class="text-[10px] font-medium">Config</span>
+    </button>
+  </div>
+</nav>
+
+<!-- Banner flutuante de instalação PWA (aparece quando o navegador permite instalar) -->
+<div id="installBanner" class="install-banner hidden">
+  <span class="text-2xl">📲</span>
+  <div class="flex-1">
+    <p class="text-sm font-semibold">Instalar Finanças do Casal</p>
+    <p class="text-[11px] text-muted">Acesse como um app, direto da tela inicial.</p>
+  </div>
+  <button id="btnInstallBannerAceitar" class="brand-bg rounded-lg px-3 py-1.5 text-xs font-bold">Instalar</button>
+  <button id="btnInstallBannerFechar" class="text-muted text-lg px-1">×</button>
+</div>
+
+<div id="loadingOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(0,0,0,.5);">
+  <div class="flex flex-col items-center gap-3 card rounded-2xl px-6 py-5"><div class="spinner"></div><p id="loadingLabel" class="text-sm text-secondary">Carregando…</p></div>
+</div>
+<div id="toastContainer" class="fixed bottom-24 left-0 right-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none"></div>
+
+<div id="modalConfirm" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-4">
+    <p id="modalConfirmTitulo" class="font-bold text-base"></p>
+    <p id="modalConfirmTexto" class="text-sm text-secondary"></p>
+    <div class="flex gap-2 pt-1">
+      <button id="modalConfirmCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
+      <button id="modalConfirmOk" class="flex-1 rounded-xl py-2.5 text-sm font-bold text-white" style="background:#f43f5e;">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalEscopoParcela" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3">
+    <p class="font-bold text-base">Excluir parcela</p>
+    <p class="text-sm text-secondary">Esta transação faz parte de um parcelamento. O que você deseja excluir?</p>
+    <button id="escopoSomenteEsta" class="w-full surface-2 rounded-xl py-3 text-sm font-semibold text-left px-4">
+      <span class="block font-bold">Somente esta parcela</span>
+      <span class="block text-xs text-muted font-normal">As demais parcelas continuam normalmente.</span>
+    </button>
+    <button id="escopoEstaEFuturas" class="w-full surface-2 rounded-xl py-3 text-sm font-semibold text-left px-4">
+      <span class="block font-bold">Esta e as parcelas futuras</span>
+      <span class="block text-xs text-muted font-normal">Útil ao cancelar/renegociar o restante da dívida.</span>
+    </button>
+    <button id="escopoTodas" class="w-full rounded-xl py-3 text-sm font-semibold text-left px-4" style="background:rgba(248,113,113,.1); color:#f87171;">
+      <span class="block font-bold">Todas as parcelas do grupo</span>
+      <span class="block text-xs font-normal" style="color:#fca5a5;">Inclui parcelas já pagas — use apenas para corrigir um cadastro errado.</span>
+    </button>
+    <button id="escopoCancelar" class="w-full surface-2 rounded-xl py-2.5 text-sm font-semibold mt-1">Cancelar</button>
+  </div>
+</div>
+
+<div id="modalSalvarFiltro" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3">
+    <p class="font-bold text-base">Salvar filtro atual</p>
+    <p class="text-sm text-secondary">Dê um nome para acessar rapidamente esta combinação de filtros depois.</p>
+    <input type="text" id="nomeFiltroSalvo" maxlength="30" placeholder="Ex: Gastos do Thiago em Lazer" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+    <div class="flex gap-2 pt-1">
+      <button id="salvarFiltroCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
+      <button id="salvarFiltroConfirmar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalPessoa" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3">
+    <p class="font-bold text-base">Pessoa</p>
+    <input type="hidden" id="pessoaId" />
+    <div><label class="text-xs text-secondary mb-1 block">Nome</label><input type="text" id="pessoaNome" class="w-full border rounded-lg px-3 py-2.5" /></div>
+    <div><label class="text-xs text-secondary mb-1 block">Cor identificadora</label><input type="color" id="pessoaCor" value="#3B82F6" class="w-full h-10 border rounded-lg" /></div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="pessoaAtivo" checked class="w-4 h-4" /> Ativo</label>
+    <div class="flex gap-2 pt-1">
+      <button id="pessoaCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
+      <button id="pessoaSalvar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalCategoria" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3 max-h-[85vh] overflow-y-auto">
+    <p class="font-bold text-base">Categoria</p>
+    <input type="hidden" id="categoriaId" />
+    <div class="flex items-center gap-3">
+      <button type="button" id="btnEscolherIconeCategoria" class="icon-grid-btn selected" style="width:52px;height:52px;font-size:24px;">🏷️</button>
+      <div class="flex-1">
+        <label class="text-xs text-secondary mb-1 block">Cor da categoria</label>
+        <div id="categoriaSwatches" class="flex gap-2 flex-wrap"></div>
+      </div>
+    </div>
+    <div><label class="text-xs text-secondary mb-1 block">Tipo</label>
+      <select id="categoriaTipo" class="w-full border rounded-lg px-3 py-2.5">
+        <option>Despesa</option><option>Receita</option><option>Transferência</option>
+      </select>
+    </div>
+    <div><label class="text-xs text-secondary mb-1 block">Categoria</label><input type="text" id="categoriaNome" class="w-full border rounded-lg px-3 py-2.5" /></div>
+    <div><label class="text-xs text-secondary mb-1 block">Subcategoria</label><input type="text" id="categoriaSubnome" class="w-full border rounded-lg px-3 py-2.5" /></div>
+    <div>
+      <label class="text-xs text-secondary mb-1 block">Orçamento mensal (R$) — opcional</label>
+      <input type="number" step="0.01" min="0" id="categoriaOrcamento" placeholder="0,00" class="w-full border rounded-lg px-3 py-2.5" />
+      <p class="text-[11px] text-muted mt-1">Se definido, esta categoria aparecerá no painel "Orçamento vs. Realizado" do Dashboard.</p>
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="categoriaAtivo" checked class="w-4 h-4" /> Ativa</label>
+    <div class="flex gap-2 pt-1">
+      <button id="categoriaCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
+      <button id="categoriaSalvar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalIconPicker" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3 max-h-[80vh] flex flex-col">
+    <p class="font-bold text-base">Escolha um ícone</p>
+    <input type="text" id="iconPickerBusca" placeholder="🔎 Buscar…" class="w-full border rounded-lg px-3 py-2 text-sm" />
+    <div id="iconPickerGrid" class="grid grid-cols-6 gap-2 overflow-y-auto flex-1 py-1"></div>
+    <button id="iconPickerCancelar" class="w-full surface-2 rounded-xl py-2.5 text-sm font-semibold">Fechar</button>
+  </div>
+</div>
+<script>
+'use strict';
+/* ============================================================================
+   1. CONFIGURAÇÃO E ESTADO GLOBAL
+   ============================================================================ */
+const STORAGE_KEYS = {
+  API_URL: 'fc_api_url', CACHE: 'fc_cache_v1', QUEUE: 'fc_sync_queue_v1',
+  LAST_SYNC: 'fc_last_sync', AUTOSYNC_ON: 'fc_autosync_on', AUTOSYNC_INTERVAL: 'fc_autosync_interval',
+  THEME: 'fc_theme_v1', DASHBOARD_WIDGETS: 'fc_dashboard_widgets_v1', SAVED_FILTERS: 'fc_saved_filters_v1',
+  PWA_BANNER_DISMISSED: 'fc_pwa_banner_dismissed'
+};
+const FETCH_TIMEOUT_MS = 25000;
+
+/* ---------------- Sistema de Temas (Fase 1) ---------------- */
+const THEME_PRESETS = [
+  { nome: 'Ciano & Azul',   primaria: '#22d3ee', secundaria: '#3b82f6' },
+  { nome: 'Esmeralda',      primaria: '#34d399', secundaria: '#059669' },
+  { nome: 'Ametista',       primaria: '#a78bfa', secundaria: '#7c3aed' },
+  { nome: 'Coral & Rosa',   primaria: '#fb7185', secundaria: '#ec4899' },
+  { nome: 'Laranja Solar',  primaria: '#fb923c', secundaria: '#f59e0b' },
+  { nome: 'Grafite',        primaria: '#94a3b8', secundaria: '#475569' }
+];
+const DEFAULT_THEME = {
+  appName: 'Finanças do Casal', logoEmoji: '💰', logoImage: null, mode: 'dark',
+  corPrimaria: THEME_PRESETS[0].primaria, corSecundaria: THEME_PRESETS[0].secundaria, fonte: 'system'
+};
+const FONT_STACKS = {
+  system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  Inter: "'Inter', -apple-system, sans-serif", Poppins: "'Poppins', -apple-system, sans-serif",
+  Sora: "'Sora', -apple-system, sans-serif", Nunito: "'Nunito', -apple-system, sans-serif"
+};
+function loadTheme() { try { const raw = localStorage.getItem(STORAGE_KEYS.THEME); return raw ? { ...DEFAULT_THEME, ...JSON.parse(raw) } : { ...DEFAULT_THEME }; } catch (e) { return { ...DEFAULT_THEME }; } }
+function saveTheme(theme) { localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(theme)); }
+function hexToRgb(hex) { const h = hex.replace('#', ''); const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255]; }
+function getContrastText(hex) { try { const [r, g, b] = hexToRgb(hex); const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255; return luminance > 0.6 ? '#0f172a' : '#ffffff'; } catch (e) { return '#0f172a'; } }
+let googleFontsLoaded = {};
+function ensureGoogleFont(fontName) { if (fontName === 'system' || googleFontsLoaded[fontName]) return; const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'https://fonts.googleapis.com/css2?family=' + fontName.replace(/ /g, '+') + ':wght@400;600;700;800&display=swap'; document.head.appendChild(link); googleFontsLoaded[fontName] = true; }
+function resolvedMode(theme) { if (theme.mode === 'auto') return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; return theme.mode; }
+function applyTheme(theme) {
+  const root = document.documentElement;
+  const mode = resolvedMode(theme);
+  root.setAttribute('data-theme', mode);
+  root.style.setProperty('--color-primary', theme.corPrimaria);
+  root.style.setProperty('--color-primary-rgb', hexToRgb(theme.corPrimaria).join(','));
+  root.style.setProperty('--color-secondary', theme.corSecundaria);
+  root.style.setProperty('--on-primary', getContrastText(theme.corPrimaria));
+  if (theme.fonte !== 'system') ensureGoogleFont(theme.fonte);
+  root.style.setProperty('--font-family', FONT_STACKS[theme.fonte] || FONT_STACKS.system);
+  document.getElementById('metaThemeColor').setAttribute('content', mode === 'light' ? '#ffffff' : '#020617');
+  document.getElementById('appTitleHeader').textContent = theme.appName || DEFAULT_THEME.appName;
+  document.title = theme.appName || DEFAULT_THEME.appName;
+  applyLogoToEl(document.getElementById('appLogoEmoji'), document.getElementById('appLogoImg'), theme);
+  applyLogoToEl(document.getElementById('apLogoPreviewEmoji'), document.getElementById('apLogoPreviewImg'), theme);
+}
+function applyLogoToEl(emojiEl, imgEl, theme) {
+  if (theme.logoImage) { imgEl.src = theme.logoImage; imgEl.classList.remove('hidden'); emojiEl.classList.add('hidden'); }
+  else { emojiEl.textContent = theme.logoEmoji || DEFAULT_THEME.logoEmoji; emojiEl.classList.remove('hidden'); imgEl.classList.add('hidden'); }
+}
+
+/* ---------------- Personalização do Dashboard (Fase 2 Etapa 2) ---------------- */
+const DASHBOARD_WIDGETS_META = [
+  { id: 'saldosPessoa', label: 'Saldos por Pessoa', icone: '👥' },
+  { id: 'dividas', label: 'Dívidas & Parcelamentos', icone: '💳' },
+  { id: 'orcamento', label: 'Orçamento vs. Realizado', icone: '🎯' },
+  { id: 'quemPagou', label: 'Quem pagou o quê', icone: '🤝' },
+  { id: 'essencial', label: 'Essencial vs. Supérfluo', icone: '⚖️' },
+  { id: 'chartCategorias', label: 'Gráfico de Categorias', icone: '🍩' },
+  { id: 'chartEvolucao', label: 'Gráfico de Evolução Mensal', icone: '📈' }
+];
+function loadDashboardWidgets() {
+  const defaults = {}; DASHBOARD_WIDGETS_META.forEach(w => defaults[w.id] = true);
+  try { const raw = localStorage.getItem(STORAGE_KEYS.DASHBOARD_WIDGETS); return raw ? { ...defaults, ...JSON.parse(raw) } : defaults; }
+  catch (e) { return defaults; }
+}
+function saveDashboardWidgets(w) { localStorage.setItem(STORAGE_KEYS.DASHBOARD_WIDGETS, JSON.stringify(w)); }
+function aplicarVisibilidadeWidgets() {
+  const map = {
+    saldosPessoa: 'panelSaldosPessoa', dividas: 'panelDividas', orcamento: 'panelOrcamento',
+    quemPagou: 'panelQuemPagou', essencial: 'panelEssencial',
+    chartCategorias: 'panelChartCategorias', chartEvolucao: 'panelChartEvolucao'
+  };
+  Object.keys(map).forEach(key => {
+    const el = document.getElementById(map[key]);
+    if (el) el.classList.toggle('hidden', !state.dashboardWidgets[key]);
+  });
+}
+
+/* ---------------- Filtros Salvos (Fase 2 Etapa 2) ---------------- */
+function loadSavedFilters() { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_FILTERS) || '[]'); } catch (e) { return []; } }
+function saveSavedFilters(arr) { localStorage.setItem(STORAGE_KEYS.SAVED_FILTERS, JSON.stringify(arr)); }
+
+const state = {
+  apiUrl: localStorage.getItem(STORAGE_KEYS.API_URL) || '',
+  pessoas: [], categorias: [], transacoes: [], lixeira: [],
+  online: navigator.onLine, currentView: 'dashboard',
+  tx: { tipo: 'Despesa', status: 'Pago', pessoaId: null, tags: [], essencial: '' },
+  parcelamento: { ativo: false },
+  extrato: { aba: 'transacoes', pagina: 1, porPagina: 20 },
+  charts: { categorias: null, evolucao: null },
+  autoSync: {
+    enabled: localStorage.getItem(STORAGE_KEYS.AUTOSYNC_ON) !== 'false',
+    intervalMs: parseInt(localStorage.getItem(STORAGE_KEYS.AUTOSYNC_INTERVAL) || '30000', 10),
+    timer: null, syncing: false
+  },
+  theme: loadTheme(),
+  dashboardWidgets: loadDashboardWidgets(),
+  savedFilters: loadSavedFilters(),
+  iconPicker: { target: null },
+  categoriaCorSelecionada: '#64748B',
+  firstLoadDone: false,
+  escopoParcelaAlvo: null,
+  pwaDeferredPrompt: null
+};
+
+/* ============================================================================
+   2. CACHE LOCAL E FILA DE SINCRONIZAÇÃO OFFLINE
+   ============================================================================ */
+function loadCache() { try { const raw = localStorage.getItem(STORAGE_KEYS.CACHE); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+function saveCache() {
+  localStorage.setItem(STORAGE_KEYS.CACHE, JSON.stringify({ pessoas: state.pessoas, categorias: state.categorias, transacoes: state.transacoes, lixeira: state.lixeira }));
+  localStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+}
+function getQueue() { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.QUEUE) || '[]'); } catch (e) { return []; } }
+function saveQueue(q) { localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(q)); }
+function enqueueAction(action, payload) { const q = getQueue(); q.push({ action, payload, ts: Date.now() }); saveQueue(q); refreshFilaPendenteInfo(); }
+
+/* ============================================================================
+   3. CAMADA DE API
+   ============================================================================ */
+function fetchComTimeout(url, options) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+}
+async function apiGet(action, extraParams) {
+  if (!state.apiUrl) throw new Error('URL da API não configurada.');
+  const params = new URLSearchParams({ action, ...(extraParams || {}) });
+  let resp;
+  try { resp = await fetchComTimeout(state.apiUrl + '?' + params.toString(), { method: 'GET', redirect: 'follow' }); }
+  catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tempo esgotado aguardando resposta do servidor (>' + (FETCH_TIMEOUT_MS/1000) + 's).');
+    throw new Error('Falha de rede ao contatar o servidor (Failed to fetch).');
+  }
+  const text = await resp.text();
+  let json;
+  try { json = JSON.parse(text); }
+  catch (e) { throw new Error('Resposta inesperada da API (não é JSON). Verifique as permissões do Web App.'); }
+  if (!json.success) throw new Error(json.error || 'Erro desconhecido na API.');
+  return json.data;
+}
+async function apiPost(action, payload) {
+  if (!state.apiUrl) throw new Error('URL da API não configurada.');
+  let resp;
+  try {
+    resp = await fetchComTimeout(state.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload: payload || {} }) });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tempo esgotado aguardando resposta do servidor.');
+    throw new Error('Falha de rede ao contatar o servidor (Failed to fetch).');
+  }
+  const text = await resp.text();
+  let json;
+  try { json = JSON.parse(text); }
+  catch (e) { throw new Error('Resposta inesperada da API (não é JSON). Verifique as permissões do Web App.'); }
+  if (!json.success) throw new Error(json.error || 'Erro desconhecido na API.');
+  return json.data;
+}
+async function writeAction(action, payload, optimisticFn) {
+  try { const data = await apiPost(action, payload); return { ok: true, data }; }
+  catch (err) {
+    console.warn('Falha ao sincronizar imediatamente, enfileirando ação:', action, err.message);
+    enqueueAction(action, payload);
+    if (optimisticFn) optimisticFn();
+    saveCache();
+    setConnStatus(false, 'Alteração salva localmente (offline)');
+    return { ok: false, queued: true, error: err.message };
+  }
+}
+async function processarFila(silencioso) {
+  const q = getQueue();
+  if (!q.length) { if (!silencioso) showToast('Nada para sincronizar.', 'info'); return; }
+  if (!state.apiUrl) { if (!silencioso) showToast('Configure a URL da API antes de sincronizar.', 'error'); return; }
+  if (!silencioso) showLoading(true, 'Sincronizando ' + q.length + ' alteração(ões)…');
+  let processadas = 0;
+  while (q.length) {
+    const item = q[0];
+    try { await apiPost(item.action, item.payload); q.shift(); processadas++; }
+    catch (err) { console.error('Erro ao processar item da fila:', err); break; }
+  }
+  saveQueue(q);
+  refreshFilaPendenteInfo();
+  if (!silencioso) showLoading(false);
+  if (processadas > 0 && !silencioso) showToast(processadas + ' alteração(ões) sincronizada(s) com sucesso.', 'success');
+  if (q.length > 0 && !silencioso) showToast('Algumas alterações ainda não puderam ser sincronizadas.', 'error');
+  await carregarDadosIniciais(true);
+}
+function refreshFilaPendenteInfo() { const el = document.getElementById('filaPendenteInfo'); if (el) el.textContent = getQueue().length; }
+
+/* ============================================================================
+   4. UTILITÁRIOS GERAIS
+   ============================================================================ */
+function round2(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+function formatBRL(valor) { return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function formatDataBR(isoDate) { if (!isoDate) return ''; const [y, m, d] = String(isoDate).slice(0, 10).split('-'); return (!y || !m || !d) ? isoDate : `${d}/${m}/${y}`; }
+function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function primeiroDiaMes(o) { const d = new Date(); d.setMonth(d.getMonth() + o, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }
+function ultimoDiaMes(o) { const d = new Date(); d.setMonth(d.getMonth() + o + 1, 0); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function nomeMes(o) { const d = new Date(); d.setMonth(d.getMonth() + o, 1); return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); }
+function addMonthsSafe(isoDate, n) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const totalMonthIndex = (m - 1) + n;
+  const targetYear = y + Math.floor(totalMonthIndex / 12);
+  const targetMonth = ((totalMonthIndex % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const day = Math.min(d, lastDay);
+  return targetYear + '-' + String(targetMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+}
+function showLoading(show, label) { document.getElementById('loadingOverlay').classList.toggle('hidden', !show); document.getElementById('loadingLabel').textContent = label || 'Carregando…'; }
+function showToast(mensagem, tipo) {
+  tipo = tipo || 'info';
+  const cores = { success: 'text-white', error: 'text-white', info: 'surface-2' };
+  const bg = { success: 'var(--color-success)', error: '#f43f5e', info: '' }[tipo];
+  const el = document.createElement('div');
+  el.className = 'toast pointer-events-auto px-4 py-3 rounded-xl text-sm font-medium shadow-lg max-w-sm text-center ' + (cores[tipo] || cores.info);
+  if (bg) el.style.background = bg; else el.style.border = '1px solid var(--border-color)';
+  el.textContent = mensagem;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .3s ease'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 4000);
+}
+function setConnStatus(online, customMsg) {
+  state.online = online;
+  const badge = document.getElementById('connStatus');
+  const banner = document.getElementById('offlineBanner');
+  if (online) { badge.textContent = customMsg || 'Conectado ao Google Sheets'; banner.classList.add('hidden'); }
+  else { badge.textContent = customMsg || 'Offline — usando dados em cache'; banner.classList.remove('hidden'); }
+}
+function confirmarAcao(titulo, texto) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modalConfirm');
+    document.getElementById('modalConfirmTitulo').textContent = titulo;
+    document.getElementById('modalConfirmTexto').textContent = texto;
+    modal.classList.remove('hidden');
+    const okBtn = document.getElementById('modalConfirmOk');
+    const cancelBtn = document.getElementById('modalConfirmCancelar');
+    function limpar() { modal.classList.add('hidden'); okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); }
+    function onOk() { limpar(); resolve(true); }
+    function onCancel() { limpar(); resolve(false); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+function escapeHtml(str) { return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function gerarUuidCliente() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
+}
+function statusExibicao(t) { if (t.Status === 'Pendente' && t.Data && t.Data < hojeISO()) return 'Atrasado'; return t.Status; }
+function badgeStatusHtml(t) {
+  const st = statusExibicao(t);
+  if (st === 'Atrasado') return '<span class="badge-atrasado">Atrasado</span>';
+  if (st === 'Pendente') return '<span class="badge-pendente">Pendente</span>';
+  return '';
+}
+function badgeParcelaHtml(t) {
+  if (!t.TotalParcelas || Number(t.TotalParcelas) <= 1) return '';
+  const num = Number(t.NumeroParcela);
+  if (num === 0) return '<span class="badge-parcela">Entrada</span>';
+  return `<span class="badge-parcela">Parcela ${num}/${t.TotalParcelas}</span>`;
+}
+function badgeEssencialHtml(t) {
+  if (t.Essencial === 'Essencial') return '<span class="badge-essencial">Essencial</span>';
+  if (t.Essencial === 'Supérfluo') return '<span class="badge-superfluo">Supérfluo</span>';
+  return '';
+}
+function getTags(t) { return (t.Tags || '').split(',').map(s => s.trim()).filter(Boolean); }
+function todasTagsUnicas() {
+  const set = new Set();
+  state.transacoes.forEach(t => getTags(t).forEach(tag => set.add(tag)));
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/* ============================================================================
+   5. NAVEGAÇÃO
+   ============================================================================ */
+function irPara(viewName) {
+  state.currentView = viewName;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + viewName).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.nav === viewName));
+  if (viewName === 'dashboard') renderDashboard();
+  if (viewName === 'extrato') renderExtrato();
+  if (viewName === 'config') renderConfig();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('click', () => irPara(btn.dataset.nav)));
+document.getElementById('fabNovaTransacao').addEventListener('click', () => abrirFormTransacao(null));
+document.getElementById('btnSync').addEventListener('click', () => sincronizarAgora(false));
+
+/* ============================================================================
+   6. CARREGAMENTO DE DADOS
+   ============================================================================ */
+async function carregarDadosIniciais(silencioso) {
+  const mostrarSkeleton = !state.firstLoadDone && !silencioso;
+  if (mostrarSkeleton) {
+    document.getElementById('skeletonDashboard').classList.remove('hidden');
+    document.getElementById('dashboardConteudo').classList.add('hidden');
+    document.getElementById('skeletonExtrato').classList.remove('hidden');
+  }
+  if (!silencioso && !mostrarSkeleton) showLoading(true, 'Carregando dados da planilha…');
+
+  if (!state.apiUrl) {
+    const cache = loadCache();
+    if (cache) { Object.assign(state, cache); setConnStatus(false, 'URL da API não configurada — exibindo cache'); }
+    else setConnStatus(false, 'URL da API não configurada');
+    finalizarCarregamento(silencioso, mostrarSkeleton);
+    return;
+  }
+  try {
+    const data = await apiGet('getAll');
+    state.pessoas = data.pessoas || [];
+    state.categorias = data.categorias || [];
+    state.transacoes = data.transacoes || [];
+    state.lixeira = data.lixeira || [];
+    saveCache();
+    setConnStatus(true);
+  } catch (err) {
+    console.error('Erro ao carregar dados da API:', err);
+    const cache = loadCache();
+    if (cache) {
+      Object.assign(state, cache);
+      setConnStatus(false, 'Sem conexão — exibindo cache local');
+      if (!silencioso) showToast('Não foi possível carregar dados: ' + err.message, 'error');
+    } else {
+      setConnStatus(false, 'Sem conexão e sem cache disponível');
+      if (!silencioso) showToast('Não foi possível carregar dados: ' + err.message, 'error');
+    }
+  }
+  finalizarCarregamento(silencioso, mostrarSkeleton);
+}
+function finalizarCarregamento(silencioso, mostrarSkeleton) {
+  state.firstLoadDone = true;
+  if (mostrarSkeleton) {
+    document.getElementById('skeletonDashboard').classList.add('hidden');
+    document.getElementById('dashboardConteudo').classList.remove('hidden');
+    document.getElementById('skeletonExtrato').classList.add('hidden');
+  }
+  if (!silencioso && !mostrarSkeleton) showLoading(false);
+  atualizarTudo();
+}
+function atualizarTudo() {
+  refreshFilaPendenteInfo();
+  const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
+  const infoEl = document.getElementById('ultimaSincInfo');
+  if (infoEl) infoEl.textContent = lastSync ? new Date(lastSync).toLocaleString('pt-BR') : 'nunca';
+  if (state.currentView === 'dashboard') renderDashboard();
+  if (state.currentView === 'extrato') renderExtrato();
+  if (state.currentView === 'config') renderConfig();
+}
+window.addEventListener('online', () => { setConnStatus(true); sincronizarAgora(true); });
+window.addEventListener('offline', () => setConnStatus(false));
+
+/* ============================================================================
+   6B. SINCRONIZAÇÃO AUTOMÁTICA MULTI-DISPOSITIVO
+   ============================================================================ */
+async function sincronizarAgora(silencioso) {
+  if (state.autoSync.syncing) return;
+  state.autoSync.syncing = true;
+  atualizarIndicadorSync(true);
+  try {
+    if (getQueue().length) await processarFila(true);
+    else await carregarDadosIniciais(true);
+    if (!silencioso) showToast('Dados atualizados!', 'success');
+  } catch (err) { if (!silencioso) showToast('Falha ao sincronizar: ' + err.message, 'error'); }
+  finally { state.autoSync.syncing = false; atualizarIndicadorSync(false); }
+}
+function atualizarIndicadorSync(emAndamento) {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  if (emAndamento) el.innerHTML = '<span class="spinner-sm"></span> Sincronizando…';
+  else setConnStatus(state.online);
+}
+function iniciarAutoSync() {
+  pararAutoSync();
+  if (!state.autoSync.enabled || !state.apiUrl) return;
+  state.autoSync.timer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    if (state.currentView === 'transacao') return;
+    sincronizarAgora(true);
+  }, state.autoSync.intervalMs);
+}
+function pararAutoSync() { if (state.autoSync.timer) { clearInterval(state.autoSync.timer); state.autoSync.timer = null; } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.apiUrl) sincronizarAgora(true); });
+window.addEventListener('focus', () => { if (state.apiUrl) sincronizarAgora(true); });
+
+/* ============================================================================
+   7. DASHBOARD
+   ============================================================================ */
+document.getElementById('dashPeriodo').addEventListener('change', (e) => {
+  document.getElementById('dashPersonalizado').classList.toggle('hidden', e.target.value !== 'personalizado');
+  renderDashboard();
+});
+document.getElementById('dashDataIni').addEventListener('change', renderDashboard);
+document.getElementById('dashDataFim').addEventListener('change', renderDashboard);
+
+function getPeriodoAtivo(prefixo) {
+  const sel = document.getElementById(prefixo + 'Periodo') || document.getElementById('dashPeriodo');
+  const val = sel.value;
+  if (val === 'atual') return { ini: primeiroDiaMes(0), fim: ultimoDiaMes(0) };
+  if (val === 'anterior') return { ini: primeiroDiaMes(-1), fim: ultimoDiaMes(-1) };
+  if (val === 'personalizado') {
+    const ini = document.getElementById(prefixo + 'DataIni').value || primeiroDiaMes(0);
+    const fim = document.getElementById(prefixo + 'DataFim').value || ultimoDiaMes(0);
+    return { ini, fim };
+  }
+  return { ini: null, fim: null };
+}
+function transacoesNoPeriodo(ini, fim) { return state.transacoes.filter(t => (!ini || !fim) ? true : (t.Data >= ini && t.Data <= fim)); }
+function corDaCategoria(nomeCategoria) { const found = state.categorias.find(c => c.Categoria === nomeCategoria && c.Cor); return found ? found.Cor : null; }
+
+function renderDashboard() {
+  aplicarVisibilidadeWidgets();
+  const { ini, fim } = getPeriodoAtivo('dash');
+  const txs = transacoesNoPeriodo(ini, fim);
+  const totalReceitas = txs.filter(t => t.Tipo === 'Receita').reduce((s, t) => s + Number(t.Valor), 0);
+  const totalDespesas = txs.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
+  const saldo = totalReceitas - totalDespesas;
+
+  document.getElementById('saldoGeral').textContent = formatBRL(saldo);
+  document.getElementById('saldoGeral').style.color = saldo >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+  document.getElementById('totalReceitas').textContent = formatBRL(totalReceitas);
+  document.getElementById('totalDespesas').textContent = formatBRL(totalDespesas);
+
+  const pessoasAtivas = state.pessoas.filter(p => p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true');
+  if (state.dashboardWidgets.saldosPessoa) {
+    document.getElementById('saldosPorPessoa').innerHTML = pessoasAtivas.length ? pessoasAtivas.map(p => {
+      const txsP = txs.filter(t => t.PessoaId === p.ID);
+      const rec = txsP.filter(t => t.Tipo === 'Receita').reduce((s, t) => s + Number(t.Valor), 0);
+      const desp = txsP.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
+      const saldoP = rec - desp;
+      return `<div class="card rounded-2xl p-3">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:${p.Cor}20; color:${p.Cor}">${p.Iniciais || '?'}</span>
+          <span class="text-xs text-secondary truncate">${escapeHtml(p.Nome)}</span>
+        </div>
+        <p class="text-lg font-bold" style="color:${saldoP >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${formatBRL(saldoP)}</p>
+      </div>`;
+    }).join('') : `<div class="col-span-2 empty-state"><div class="empty-icon">👥</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Cadastre em Configurações para começar a ver os saldos individuais aqui.</p></div>`;
+  }
+
+  if (state.dashboardWidgets.quemPagou) {
+    const totalGastoTodos = txs.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0) || 1;
+    document.getElementById('quemPagouQue').innerHTML = pessoasAtivas.length ? pessoasAtivas.map(p => {
+      const gasto = txs.filter(t => t.PessoaId === p.ID && t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
+      const pct = Math.round((gasto / totalGastoTodos) * 100);
+      return `<div>
+        <div class="flex justify-between text-xs mb-1"><span>${escapeHtml(p.Nome)}</span><span class="font-semibold">${formatBRL(gasto)} <span class="text-muted">(${pct}%)</span></span></div>
+        <div class="w-full rounded-full h-2 surface-2"><div class="h-2 rounded-full" style="width:${pct}%; background:${p.Cor}"></div></div>
+      </div>`;
+    }).join('') : '<p class="text-xs text-muted text-center py-4">Sem dados para exibir ainda.</p>';
+  }
+
+  if (state.dashboardWidgets.dividas) renderPainelDividas();
+  if (state.dashboardWidgets.orcamento) renderPainelOrcamento();
+  if (state.dashboardWidgets.essencial) renderPainelEssencial(txs);
+  if (state.dashboardWidgets.chartCategorias) renderChartCategorias(txs);
+  if (state.dashboardWidgets.chartEvolucao) renderChartEvolucao();
+}
+
+/* ---------------- Painel de Dívidas & Parcelamentos ---------------- */
+function renderPainelDividas() {
+  const grupos = {};
+  state.transacoes.forEach(t => {
+    if (!t.GrupoParcelamentoId || !t.TotalParcelas || Number(t.TotalParcelas) <= 1) return;
+    if (!grupos[t.GrupoParcelamentoId]) grupos[t.GrupoParcelamentoId] = [];
+    grupos[t.GrupoParcelamentoId].push(t);
+  });
+  const listaEl = document.getElementById('listaDividas');
+  const vazioEl = document.getElementById('dividasVazio');
+  const resumoEl = document.getElementById('compromissoMesResumo');
+  const idsGrupos = Object.keys(grupos);
+  const gruposAtivos = idsGrupos.map(id => {
+    const itens = grupos[id].slice().sort((a, b) => Number(a.NumeroParcela) - Number(b.NumeroParcela));
+    const parcelasNormais = itens.filter(i => Number(i.NumeroParcela) >= 1);
+    const pendentes = parcelasNormais.filter(i => i.Status === 'Pendente');
+    if (!pendentes.length) return null;
+    const pagas = parcelasNormais.length - pendentes.length;
+    const totalParcelas = Number(parcelasNormais[0].TotalParcelas);
+    const proxima = pendentes.slice().sort((a, b) => (a.Data || '').localeCompare(b.Data || ''))[0];
+    const valorRestante = pendentes.reduce((s, i) => s + Number(i.Valor), 0);
+    const categoria = state.categorias.find(c => c.Categoria === itens[0].Categoria);
+    const pessoa = state.pessoas.find(p => p.ID === itens[0].PessoaId);
+    return { grupoId: id, itens, pagas, totalParcelas, proxima, valorRestante, categoria, pessoa, descricao: itens[0].Descricao || itens[0].Categoria };
+  }).filter(Boolean);
+  gruposAtivos.sort((a, b) => (a.proxima.Data || '').localeCompare(b.proxima.Data || ''));
+
+  if (!gruposAtivos.length) {
+    listaEl.innerHTML = ''; vazioEl.classList.remove('hidden'); resumoEl.textContent = '';
+  } else {
+    vazioEl.classList.add('hidden');
+    listaEl.innerHTML = gruposAtivos.map(g => {
+      const pct = Math.round((g.pagas / g.totalParcelas) * 100);
+      const cor = g.categoria ? g.categoria.Cor : 'var(--color-primary)';
+      const icone = g.categoria ? g.categoria.Icone : '💳';
+      const atrasada = statusExibicao(g.proxima) === 'Atrasado';
+      return `<div class="debt-card">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${cor}25;">${icone}</span>
+            <div class="min-w-0"><p class="text-sm font-semibold truncate">${escapeHtml(g.descricao)}</p><p class="text-[11px] text-muted truncate">${g.pessoa ? escapeHtml(g.pessoa.Nome) : ''}</p></div>
+          </div>
+          <span class="badge-parcela shrink-0">Parcela ${g.pagas + 1}/${g.totalParcelas}</span>
+        </div>
+        <div class="progress-track mb-2"><div class="progress-fill" style="width:${pct}%; background:${cor}"></div></div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-muted">Próxima: ${formatDataBR(g.proxima.Data)} ${atrasada ? '<span class="badge-atrasado ml-1">Atrasado</span>' : ''}</span>
+          <span class="font-semibold">${formatBRL(g.proxima.Valor)}</span>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-muted mt-1"><span>Restante do grupo</span><span>${formatBRL(g.valorRestante)}</span></div>
+      </div>`;
+    }).join('');
+    const inicioMes = primeiroDiaMes(0), fimMes = ultimoDiaMes(0);
+    const compromissoMes = {}; let compromissoTotal = 0;
+    gruposAtivos.forEach(g => {
+      g.itens.filter(i => Number(i.NumeroParcela) >= 1 && i.Status === 'Pendente' && i.Data >= inicioMes && i.Data <= fimMes).forEach(i => {
+        compromissoTotal += Number(i.Valor);
+        const nome = (state.pessoas.find(p => p.ID === i.PessoaId) || {}).Nome || '—';
+        compromissoMes[nome] = (compromissoMes[nome] || 0) + Number(i.Valor);
+      });
+    });
+    const partes = Object.keys(compromissoMes).map(nome => `${escapeHtml(nome)}: ${formatBRL(compromissoMes[nome])}`);
+    resumoEl.textContent = compromissoTotal > 0 ? `Compromisso este mês: ${formatBRL(compromissoTotal)}${partes.length ? ' (' + partes.join(' · ') + ')' : ''}` : 'Nenhuma parcela vencendo neste mês.';
+  }
+}
+
+/* ---------------- Painel de Orçamento vs. Realizado ---------------- */
+function renderPainelOrcamento() {
+  const listaEl = document.getElementById('listaOrcamento');
+  const vazioEl = document.getElementById('orcamentoVazio');
+  const inicioMes = primeiroDiaMes(0), fimMes = ultimoDiaMes(0);
+  const categoriasComOrcamento = state.categorias.filter(c => Number(c.OrcamentoMensal) > 0);
+  if (!categoriasComOrcamento.length) { listaEl.innerHTML = ''; vazioEl.classList.remove('hidden'); return; }
+  vazioEl.classList.add('hidden');
+  const itens = categoriasComOrcamento.map(c => {
+    const gasto = state.transacoes.filter(t => t.Tipo === 'Despesa' && t.Categoria === c.Categoria && t.Data >= inicioMes && t.Data <= fimMes).reduce((s, t) => s + Number(t.Valor), 0);
+    const orcamento = Number(c.OrcamentoMensal);
+    const pct = orcamento > 0 ? Math.round((gasto / orcamento) * 100) : 0;
+    return { categoria: c, gasto, orcamento, pct };
+  }).sort((a, b) => b.pct - a.pct);
+  listaEl.innerHTML = itens.map(it => {
+    const cor = it.pct > 100 ? 'var(--color-danger)' : (it.pct >= 80 ? 'var(--color-warning)' : 'var(--color-success)');
+    return `<div>
+      <div class="flex items-center justify-between text-xs mb-1">
+        <span class="flex items-center gap-1.5"><span>${it.categoria.Icone || '🏷️'}</span>${escapeHtml(it.categoria.Categoria)}</span>
+        <span class="font-semibold" style="color:${cor}">${formatBRL(it.gasto)} <span class="text-muted font-normal">/ ${formatBRL(it.orcamento)}</span></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(it.pct, 100)}%; background:${cor}"></div></div>
+      ${it.pct > 100 ? `<p class="text-[11px] mt-1" style="color:var(--color-danger)">⚠️ ${it.pct}% do orçamento — excedido em ${formatBRL(it.gasto - it.orcamento)}</p>` : `<p class="text-[11px] text-muted mt-1">${it.pct}% utilizado</p>`}
+    </div>`;
+  }).join('');
+}
+
+/* ---------------- Painel Essencial vs. Supérfluo ---------------- */
+function renderPainelEssencial(txs) {
+  const el = document.getElementById('essencialConteudo');
+  const vazioEl = document.getElementById('essencialVazio');
+  const despesas = txs.filter(t => t.Tipo === 'Despesa');
+  const essencial = despesas.filter(t => t.Essencial === 'Essencial').reduce((s, t) => s + Number(t.Valor), 0);
+  const superfluo = despesas.filter(t => t.Essencial === 'Supérfluo').reduce((s, t) => s + Number(t.Valor), 0);
+  const naoClassificado = despesas.filter(t => !t.Essencial).reduce((s, t) => s + Number(t.Valor), 0);
+  const total = essencial + superfluo + naoClassificado;
+  if (total <= 0) { el.innerHTML = ''; vazioEl.classList.remove('hidden'); return; }
+  vazioEl.classList.add('hidden');
+  const pctEss = Math.round((essencial / total) * 100);
+  const pctSup = Math.round((superfluo / total) * 100);
+  const pctNc = 100 - pctEss - pctSup;
+  el.innerHTML = `
+    <div class="flex rounded-full overflow-hidden h-3 mb-3">
+      <div style="width:${pctEss}%; background:var(--color-success)"></div>
+      <div style="width:${pctSup}%; background:#f97316"></div>
+      <div style="width:${pctNc}%; background:var(--bg-surface-3)"></div>
+    </div>
+    <div class="space-y-1.5 text-xs">
+      <div class="flex justify-between"><span>✅ Essencial</span><span class="font-semibold">${formatBRL(essencial)} (${pctEss}%)</span></div>
+      <div class="flex justify-between"><span>🎈 Supérfluo</span><span class="font-semibold">${formatBRL(superfluo)} (${pctSup}%)</span></div>
+      ${naoClassificado > 0 ? `<div class="flex justify-between text-muted"><span>— Não classificado</span><span>${formatBRL(naoClassificado)} (${pctNc}%)</span></div>` : ''}
+    </div>`;
+}
+
+function renderChartCategorias(txs) {
+  const despesas = txs.filter(t => t.Tipo === 'Despesa');
+  const porCategoria = {};
+  despesas.forEach(t => { const key = t.Categoria || 'Sem categoria'; porCategoria[key] = (porCategoria[key] || 0) + Number(t.Valor); });
+  const labels = Object.keys(porCategoria);
+  const valores = Object.values(porCategoria);
+  const canvas = document.getElementById('chartCategorias');
+  const vazioMsg = document.getElementById('chartCategoriasVazio');
+  if (!labels.length) {
+    canvas.classList.add('hidden'); vazioMsg.classList.remove('hidden');
+    if (state.charts.categorias) { state.charts.categorias.destroy(); state.charts.categorias = null; }
+    return;
+  }
+  canvas.classList.remove('hidden'); vazioMsg.classList.add('hidden');
+  const palette = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#f87171', '#60a5fa', '#fb923c', '#4ade80', '#e879f9'];
+  const cores = labels.map((l, i) => corDaCategoria(l) || palette[i % palette.length]);
+  if (state.charts.categorias) state.charts.categorias.destroy();
+  const legendColor = resolvedMode(state.theme) === 'light' ? '#334155' : '#cbd5e1';
+  state.charts.categorias = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: valores, backgroundColor: cores, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: legendColor, boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + formatBRL(ctx.parsed) } } } }
+  });
+}
+function renderChartEvolucao() {
+  const meses = [];
+  for (let i = 5; i >= 0; i--) meses.push({ ini: primeiroDiaMes(-i), fim: ultimoDiaMes(-i), label: nomeMes(-i) });
+  const receitas = meses.map(m => state.transacoes.filter(t => t.Tipo === 'Receita' && t.Data >= m.ini && t.Data <= m.fim).reduce((s, t) => s + Number(t.Valor), 0));
+  const despesas = meses.map(m => state.transacoes.filter(t => t.Tipo === 'Despesa' && t.Data >= m.ini && t.Data <= m.fim).reduce((s, t) => s + Number(t.Valor), 0));
+  const canvas = document.getElementById('chartEvolucao');
+  if (state.charts.evolucao) state.charts.evolucao.destroy();
+  const gridColor = resolvedMode(state.theme) === 'light' ? '#e2e8f0' : '#1e293b';
+  const tickColor = resolvedMode(state.theme) === 'light' ? '#475569' : '#94a3b8';
+  const legendColor = resolvedMode(state.theme) === 'light' ? '#334155' : '#cbd5e1';
+  state.charts.evolucao = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: meses.map(m => m.label.split(' de ')[0].slice(0, 3).toUpperCase()),
+      datasets: [{ label: 'Receitas', data: receitas, backgroundColor: '#34d399', borderRadius: 4 }, { label: 'Despesas', data: despesas, backgroundColor: '#f87171', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: tickColor, font: { size: 10 }, callback: (v) => 'R$' + v }, grid: { color: gridColor } } },
+      plugins: { legend: { position: 'bottom', labels: { color: legendColor, boxWidth: 12, font: { size: 11 } } } } }
+  });
+}
+
+/* ============================================================================
+   8. FORMULÁRIO DE TRANSAÇÃO
+   ============================================================================ */
+document.querySelectorAll('.seg-tipo').forEach(btn => btn.addEventListener('click', () => {
+  state.tx.tipo = btn.dataset.tipo;
+  document.querySelectorAll('.seg-tipo').forEach(b => b.classList.toggle('active-seg', b === btn));
+  popularSelectCategorias();
+  atualizarVisibilidadeParcelamentoToggle();
+}));
+document.querySelectorAll('.seg-status').forEach(btn => btn.addEventListener('click', () => {
+  state.tx.status = btn.dataset.status;
+  document.querySelectorAll('.seg-status').forEach(b => b.classList.toggle('active-seg', b === btn));
+}));
+document.querySelectorAll('.seg-essencial').forEach(btn => btn.addEventListener('click', () => {
+  state.tx.essencial = btn.dataset.essencial;
+  document.querySelectorAll('.seg-essencial').forEach(b => b.classList.toggle('active-seg', b === btn));
+}));
+document.getElementById('txCategoria').addEventListener('change', popularSelectSubcategorias);
+
+function popularSelectCategorias() {
+  const sel = document.getElementById('txCategoria');
+  const categoriasFiltradas = state.categorias.filter(c => c.Tipo === state.tx.tipo && (c.Ativo === true || c.Ativo === 'TRUE' || c.Ativo === 'true'));
+  const nomesUnicos = [...new Set(categoriasFiltradas.map(c => c.Categoria))];
+  sel.innerHTML = nomesUnicos.map(nome => {
+    const item = categoriasFiltradas.find(c => c.Categoria === nome);
+    const icone = item && item.Icone ? item.Icone + ' ' : '';
+    return `<option value="${escapeHtml(nome)}">${icone}${escapeHtml(nome)}</option>`;
+  }).join('') || '<option value="">Nenhuma categoria cadastrada</option>';
+  popularSelectSubcategorias();
+}
+function popularSelectSubcategorias() {
+  const categoriaSelecionada = document.getElementById('txCategoria').value;
+  const sel = document.getElementById('txSubcategoria');
+  const subs = state.categorias.filter(c => c.Tipo === state.tx.tipo && c.Categoria === categoriaSelecionada).map(c => c.Subcategoria).filter(Boolean);
+  sel.innerHTML = subs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('') || '<option value="">—</option>';
+}
+function popularChipsPessoas() {
+  const wrap = document.getElementById('txPessoaChips');
+  const pessoasAtivas = state.pessoas.filter(p => p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true');
+  wrap.innerHTML = pessoasAtivas.map(p => `
+    <button type="button" data-pessoa-id="${p.ID}" class="chip-pessoa chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm" style="border-color:${p.Cor}55">
+      <span class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style="background:${p.Cor}30;color:${p.Cor}">${p.Iniciais || '?'}</span>${escapeHtml(p.Nome)}
+    </button>`).join('') || '<p class="text-xs text-muted">Cadastre pessoas em Configurações.</p>';
+  wrap.querySelectorAll('.chip-pessoa').forEach(btn => btn.addEventListener('click', () => {
+    state.tx.pessoaId = btn.dataset.pessoaId;
+    wrap.querySelectorAll('.chip-pessoa').forEach(b => {
+      const ativo = b.dataset.pessoaId === state.tx.pessoaId;
+      b.style.background = ativo ? (state.pessoas.find(p => p.ID === b.dataset.pessoaId) || {}).Cor + '25' : '';
+      b.classList.toggle('brand-ring', ativo);
+    });
+  }));
+}
+
+/* ---------- Tags: chip input ---------- */
+function renderTagsChips() {
+  const wrap = document.getElementById('txTagsChips');
+  wrap.innerHTML = state.tx.tags.map((tag, idx) => `<span class="tag-chip">#${escapeHtml(tag)}<button type="button" data-idx="${idx}">×</button></span>`).join('');
+  wrap.querySelectorAll('button[data-idx]').forEach(btn => btn.addEventListener('click', () => {
+    state.tx.tags.splice(parseInt(btn.dataset.idx, 10), 1);
+    renderTagsChips();
+  }));
+}
+document.getElementById('txTagInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,/g, '');
+    if (val && !state.tx.tags.some(t => t.toLowerCase() === val.toLowerCase())) { state.tx.tags.push(val); renderTagsChips(); }
+    e.target.value = '';
+  }
+});
+
+/* ---------- Lógica de Parcelamento ---------- */
+function atualizarVisibilidadeParcelamentoToggle() {
+  const editando = !!document.getElementById('txId').value;
+  const disponivel = state.tx.tipo === 'Despesa' && !editando;
+  document.getElementById('parcelamentoToggleWrap').classList.toggle('hidden', !disponivel);
+  if (!disponivel && state.parcelamento.ativo) desativarParcelamento();
+}
+const toggleParcelamentoEl = document.getElementById('toggleParcelamento');
+toggleParcelamentoEl.addEventListener('click', () => { if (state.parcelamento.ativo) desativarParcelamento(); else ativarParcelamento(); });
+function ativarParcelamento() {
+  state.parcelamento.ativo = true;
+  toggleParcelamentoEl.classList.add('on');
+  document.getElementById('parcelamentoCamposWrap').classList.remove('hidden');
+  document.getElementById('captionTxValor').classList.remove('hidden');
+  document.getElementById('labelTxValor').textContent = 'Valor total da compra (R$)';
+  document.getElementById('statusWrap').classList.add('hidden');
+  if (!document.getElementById('txDataPrimeiraParcela').value) document.getElementById('txDataPrimeiraParcela').value = document.getElementById('txData').value || hojeISO();
+  atualizarPreviewParcelas();
+}
+function desativarParcelamento() {
+  state.parcelamento.ativo = false;
+  toggleParcelamentoEl.classList.remove('on');
+  document.getElementById('parcelamentoCamposWrap').classList.add('hidden');
+  document.getElementById('captionTxValor').classList.add('hidden');
+  document.getElementById('labelTxValor').textContent = 'Valor (R$)';
+  document.getElementById('statusWrap').classList.remove('hidden');
+}
+['txValor', 'txValorEntrada', 'txNumeroParcelas', 'txDataPrimeiraParcela'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { if (state.parcelamento.ativo) atualizarPreviewParcelas(); });
+});
+function calcularParcelas() {
+  const valorTotal = round2(parseFloat(document.getElementById('txValor').value) || 0);
+  const valorEntrada = round2(parseFloat(document.getElementById('txValorEntrada').value) || 0);
+  const numeroParcelas = Math.max(1, parseInt(document.getElementById('txNumeroParcelas').value, 10) || 1);
+  const dataPrimeira = document.getElementById('txDataPrimeiraParcela').value || hojeISO();
+  if (valorEntrada >= valorTotal && valorTotal > 0) throw new Error('O valor de entrada não pode ser maior ou igual ao valor total da compra.');
+  const valorFinanciado = round2(valorTotal - valorEntrada);
+  const valorBase = Math.floor((valorFinanciado / numeroParcelas) * 100) / 100;
+  const somaBase = round2(valorBase * (numeroParcelas - 1));
+  const valorUltima = round2(valorFinanciado - somaBase);
+  const parcelas = [];
+  if (valorEntrada > 0) parcelas.push({ numero: 0, valor: valorEntrada, data: document.getElementById('txData').value || hojeISO(), isEntrada: true });
+  for (let i = 0; i < numeroParcelas; i++) {
+    const valor = (i === numeroParcelas - 1) ? valorUltima : valorBase;
+    const data = addMonthsSafe(dataPrimeira, i);
+    parcelas.push({ numero: i + 1, valor, data, isEntrada: false });
+  }
+  return { parcelas, numeroParcelas, valorTotal };
+}
+function atualizarPreviewParcelas() {
+  const wrap = document.getElementById('previewParcelas');
+  try {
+    const { parcelas } = calcularParcelas();
+    wrap.innerHTML = parcelas.map(p => {
+      const rotulo = p.isEntrada ? 'Entrada' : `Parcela ${p.numero}/${document.getElementById('txNumeroParcelas').value}`;
+      return `<div class="preview-parcela-item"><span>${rotulo} · ${formatDataBR(p.data)}</span><span class="font-semibold">${formatBRL(p.valor)}</span></div>`;
+    }).join('');
+  } catch (err) { wrap.innerHTML = `<p class="text-xs" style="color:var(--color-danger)">${escapeHtml(err.message)}</p>`; }
+}
+
+function abrirFormTransacao(transacaoExistente) {
+  const form = document.getElementById('formTransacao');
+  form.reset();
+  desativarParcelamento();
+  document.getElementById('bannerParcelaInfo').classList.add('hidden');
+  popularChipsPessoas();
+  state.tx.tags = transacaoExistente ? getTags(transacaoExistente) : [];
+  renderTagsChips();
+  state.tx.essencial = transacaoExistente ? (transacaoExistente.Essencial || '') : '';
+  if (transacaoExistente) {
+    document.getElementById('tituloFormTransacao').textContent = 'Editar Transação';
+    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar Alterações';
+    document.getElementById('txId').value = transacaoExistente.ID;
+    document.getElementById('txValor').value = transacaoExistente.Valor;
+    document.getElementById('txData').value = transacaoExistente.Data;
+    document.getElementById('txDescricao').value = transacaoExistente.Descricao || '';
+    document.getElementById('txMetodo').value = transacaoExistente.MetodoPagamento || 'Pix';
+    state.tx.tipo = transacaoExistente.Tipo;
+    state.tx.status = transacaoExistente.Status || 'Pago';
+    state.tx.pessoaId = transacaoExistente.PessoaId;
+    if (transacaoExistente.TotalParcelas && Number(transacaoExistente.TotalParcelas) > 1) {
+      const banner = document.getElementById('bannerParcelaInfo');
+      const numero = Number(transacaoExistente.NumeroParcela);
+      const rotulo = numero === 0 ? 'Entrada' : `Parcela ${numero}/${transacaoExistente.TotalParcelas}`;
+      banner.textContent = `ℹ️ Esta transação é "${rotulo}" de uma compra parcelada. Para excluir mais de uma parcela de uma vez, use o botão de excluir no Extrato.`;
+      banner.classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('tituloFormTransacao').textContent = 'Nova Transação';
+    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar Transação';
+    document.getElementById('txId').value = '';
+    document.getElementById('txData').value = hojeISO();
+    state.tx.tipo = 'Despesa'; state.tx.status = 'Pago'; state.tx.pessoaId = null;
+  }
+  document.querySelectorAll('.seg-tipo').forEach(b => b.classList.toggle('active-seg', b.dataset.tipo === state.tx.tipo));
+  document.querySelectorAll('.seg-status').forEach(b => b.classList.toggle('active-seg', b.dataset.status === state.tx.status));
+  document.querySelectorAll('.seg-essencial').forEach(b => b.classList.toggle('active-seg', b.dataset.essencial === state.tx.essencial));
+  popularSelectCategorias();
+  atualizarVisibilidadeParcelamentoToggle();
+  if (transacaoExistente) {
+    setTimeout(() => {
+      document.getElementById('txCategoria').value = transacaoExistente.Categoria || '';
+      popularSelectSubcategorias();
+      document.getElementById('txSubcategoria').value = transacaoExistente.Subcategoria || '';
+      document.querySelectorAll('.chip-pessoa').forEach(b => b.classList.toggle('brand-ring', b.dataset.pessoaId === state.tx.pessoaId));
+    }, 0);
+  }
+  irPara('transacao');
+}
+
+document.getElementById('formTransacao').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!state.tx.pessoaId) { showToast('Selecione quem pagou/recebeu.', 'error'); return; }
+  const pessoa = state.pessoas.find(p => p.ID === state.tx.pessoaId) || {};
+  const id = document.getElementById('txId').value;
+  const categoriaSelecionada = document.getElementById('txCategoria').value;
+  const subcategoriaSelecionada = document.getElementById('txSubcategoria').value;
+  const catObj = state.categorias.find(c => c.Categoria === categoriaSelecionada && c.Subcategoria === subcategoriaSelecionada);
+  const tagsStr = state.tx.tags.join(',');
+  const camposComuns = {
+    Tipo: state.tx.tipo, PessoaId: state.tx.pessoaId, PessoaNome: pessoa.Nome || '',
+    Categoria: categoriaSelecionada, Subcategoria: subcategoriaSelecionada, CategoriaId: catObj ? catObj.ID : '',
+    Descricao: document.getElementById('txDescricao').value, MetodoPagamento: document.getElementById('txMetodo').value,
+    Tags: tagsStr, Essencial: state.tx.essencial
+  };
+  showLoading(true);
+  try {
+    if (state.parcelamento.ativo && !id) {
+      const { parcelas, numeroParcelas } = calcularParcelas();
+      const itens = parcelas.map(p => ({ ...camposComuns, Data: p.data, Valor: p.valor, Status: 'Pendente', NumeroParcela: p.numero, TotalParcelas: numeroParcelas }));
+      const grupoId = gerarUuidCliente();
+      const resultado = await writeAction('addTransacoesLote', { itens, grupoId }, () => {
+        itens.forEach(it => state.transacoes.push({ ...it, ID: 'temp_' + Math.random().toString(36).slice(2), GrupoParcelamentoId: grupoId, DataCriacao: new Date().toISOString(), DataEdicao: new Date().toISOString() }));
+      });
+      if (resultado.ok) { resultado.data.criadas.forEach(c => state.transacoes.push(c)); saveCache(); }
+      showToast(`Compra parcelada em ${numeroParcelas}x adicionada com sucesso!`, 'success');
+    } else if (id) {
+      const payload = { ID: id, Data: document.getElementById('txData').value, Valor: parseFloat(document.getElementById('txValor').value), Status: state.tx.status, ...camposComuns };
+      const resultado = await writeAction('updateTransacao', payload, () => { const idx = state.transacoes.findIndex(t => t.ID === id); if (idx > -1) state.transacoes[idx] = { ...state.transacoes[idx], ...payload }; });
+      if (resultado.ok) { const idx = state.transacoes.findIndex(t => t.ID === id); if (idx > -1) state.transacoes[idx] = resultado.data; saveCache(); }
+      showToast('Transação atualizada com sucesso!', 'success');
+    } else {
+      const payload = { Data: document.getElementById('txData').value, Valor: parseFloat(document.getElementById('txValor').value), Status: state.tx.status, ...camposComuns };
+      const tempId = 'temp_' + Date.now();
+      const resultado = await writeAction('addTransacao', payload, () => { state.transacoes.push({ ...payload, ID: tempId, GrupoParcelamentoId: '', NumeroParcela: 1, TotalParcelas: 1, DataCriacao: new Date().toISOString(), DataEdicao: new Date().toISOString() }); });
+      if (resultado.ok) { state.transacoes.push(resultado.data); saveCache(); }
+      showToast('Transação adicionada com sucesso!', 'success');
+    }
+    irPara('dashboard');
+  } catch (err) { showToast('Erro ao salvar: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+});
+
+/* ============================================================================
+   9. EXTRATO / HISTÓRICO (com filtros avançados e filtros salvos)
+   ============================================================================ */
+document.getElementById('tabTransacoes').addEventListener('click', () => { state.extrato.aba = 'transacoes'; state.extrato.pagina = 1; renderExtrato(); });
+document.getElementById('tabLixeira').addEventListener('click', () => { state.extrato.aba = 'lixeira'; state.extrato.pagina = 1; renderExtrato(); });
+['filtroBusca', 'filtroPessoa', 'filtroCategoria', 'filtroMetodo', 'filtroStatusExt', 'filtroValorMin', 'filtroValorMax', 'filtroTag', 'filtroEssencial', 'selectOrdenacao'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { state.extrato.pagina = 1; renderExtrato(); });
+  document.getElementById(id).addEventListener('change', () => { state.extrato.pagina = 1; renderExtrato(); });
+});
+document.getElementById('filtroPeriodo').addEventListener('change', (e) => { document.getElementById('filtroPersonalizadoWrap').classList.toggle('hidden', e.target.value !== 'personalizado'); state.extrato.pagina = 1; renderExtrato(); });
+document.getElementById('filtroDataIni').addEventListener('change', () => { state.extrato.pagina = 1; renderExtrato(); });
+document.getElementById('filtroDataFim').addEventListener('change', () => { state.extrato.pagina = 1; renderExtrato(); });
+document.getElementById('btnCarregarMais').addEventListener('click', () => { state.extrato.pagina++; renderExtrato(); });
+document.getElementById('btnFiltrosAvancados').addEventListener('click', () => document.getElementById('filtrosAvancadosWrap').classList.toggle('hidden'));
+
+const toggleSomenteParceladasEl = document.getElementById('toggleSomenteParceladas');
+toggleSomenteParceladasEl.addEventListener('click', () => { toggleSomenteParceladasEl.classList.toggle('on'); state.extrato.pagina = 1; renderExtrato(); });
+
+function popularFiltrosExtrato() {
+  const selPessoa = document.getElementById('filtroPessoa');
+  const valorAtualPessoa = selPessoa.value;
+  selPessoa.innerHTML = '<option value="todas">Todas as pessoas</option>' + state.pessoas.map(p => `<option value="${p.ID}">${escapeHtml(p.Nome)}</option>`).join('');
+  if ([...selPessoa.options].some(o => o.value === valorAtualPessoa)) selPessoa.value = valorAtualPessoa;
+  const selCat = document.getElementById('filtroCategoria');
+  const valorAtualCat = selCat.value;
+  const categoriasUnicas = [...new Set(state.categorias.map(c => c.Categoria))];
+  selCat.innerHTML = '<option value="todas">Todas as categorias</option>' + categoriasUnicas.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  if ([...selCat.options].some(o => o.value === valorAtualCat)) selCat.value = valorAtualCat;
+  const selTag = document.getElementById('filtroTag');
+  const valorAtualTag = selTag.value;
+  const tags = todasTagsUnicas();
+  selTag.innerHTML = '<option value="todas">Todas as tags</option>' + tags.map(t => `<option value="${escapeHtml(t)}">#${escapeHtml(t)}</option>`).join('');
+  if ([...selTag.options].some(o => o.value === valorAtualTag)) selTag.value = valorAtualTag;
+}
+
+function coletarFiltrosAtuais() {
+  return {
+    busca: document.getElementById('filtroBusca').value,
+    periodo: document.getElementById('filtroPeriodo').value,
+    dataIni: document.getElementById('filtroDataIni').value,
+    dataFim: document.getElementById('filtroDataFim').value,
+    pessoa: document.getElementById('filtroPessoa').value,
+    categoria: document.getElementById('filtroCategoria').value,
+    metodo: document.getElementById('filtroMetodo').value,
+    statusExt: document.getElementById('filtroStatusExt').value,
+    valorMin: document.getElementById('filtroValorMin').value,
+    valorMax: document.getElementById('filtroValorMax').value,
+    tag: document.getElementById('filtroTag').value,
+    essencial: document.getElementById('filtroEssencial').value,
+    somenteParceladas: toggleSomenteParceladasEl.classList.contains('on'),
+    ordenacao: document.getElementById('selectOrdenacao').value
+  };
+}
+function aplicarFiltros(f) {
+  document.getElementById('filtroBusca').value = f.busca || '';
+  document.getElementById('filtroPeriodo').value = f.periodo || 'atual';
+  document.getElementById('filtroPersonalizadoWrap').classList.toggle('hidden', f.periodo !== 'personalizado');
+  document.getElementById('filtroDataIni').value = f.dataIni || '';
+  document.getElementById('filtroDataFim').value = f.dataFim || '';
+  document.getElementById('filtroPessoa').value = f.pessoa || 'todas';
+  document.getElementById('filtroCategoria').value = f.categoria || 'todas';
+  document.getElementById('filtroMetodo').value = f.metodo || 'todos';
+  document.getElementById('filtroStatusExt').value = f.statusExt || 'todos';
+  document.getElementById('filtroValorMin').value = f.valorMin || '';
+  document.getElementById('filtroValorMax').value = f.valorMax || '';
+  document.getElementById('filtroTag').value = f.tag || 'todas';
+  document.getElementById('filtroEssencial').value = f.essencial || 'todos';
+  toggleSomenteParceladasEl.classList.toggle('on', !!f.somenteParceladas);
+  document.getElementById('selectOrdenacao').value = f.ordenacao || 'data_desc';
+  document.getElementById('filtrosAvancadosWrap').classList.remove('hidden');
+  state.extrato.pagina = 1;
+  renderExtrato();
+}
+function renderFiltrosSalvos() {
+  const wrap = document.getElementById('listaFiltrosSalvos');
+  if (!state.savedFilters.length) { wrap.innerHTML = '<p class="text-[11px] text-muted">Nenhum filtro salvo ainda.</p>'; return; }
+  wrap.innerHTML = state.savedFilters.map((sf, idx) => `<span class="saved-filter-chip" data-idx="${idx}"><span class="aplicar-filtro">⭐ ${escapeHtml(sf.nome)}</span><button type="button" class="remover-filtro" data-idx="${idx}">×</button></span>`).join('');
+  wrap.querySelectorAll('.aplicar-filtro').forEach(el => el.addEventListener('click', () => { const idx = parseInt(el.parentElement.dataset.idx, 10); aplicarFiltros(state.savedFilters[idx].filtros); }));
+  wrap.querySelectorAll('.remover-filtro').forEach(el => el.addEventListener('click', (ev) => { ev.stopPropagation(); const idx = parseInt(el.dataset.idx, 10); state.savedFilters.splice(idx, 1); saveSavedFilters(state.savedFilters); renderFiltrosSalvos(); }));
+}
+document.getElementById('btnSalvarFiltroAtual').addEventListener('click', () => { document.getElementById('nomeFiltroSalvo').value = ''; document.getElementById('modalSalvarFiltro').classList.remove('hidden'); });
+document.getElementById('salvarFiltroCancelar').addEventListener('click', () => document.getElementById('modalSalvarFiltro').classList.add('hidden'));
+document.getElementById('salvarFiltroConfirmar').addEventListener('click', () => {
+  const nome = document.getElementById('nomeFiltroSalvo').value.trim();
+  if (!nome) { showToast('Informe um nome para o filtro.', 'error'); return; }
+  state.savedFilters.push({ nome, filtros: coletarFiltrosAtuais() });
+  saveSavedFilters(state.savedFilters);
+  renderFiltrosSalvos();
+  document.getElementById('modalSalvarFiltro').classList.add('hidden');
+  showToast('Filtro salvo com sucesso!', 'success');
+});
+
+function ordenarTransacoes(lista, ordenacao) {
+  const arr = lista.slice();
+  switch (ordenacao) {
+    case 'data_asc': arr.sort((a, b) => (a.Data || '').localeCompare(b.Data || '')); break;
+    case 'valor_desc': arr.sort((a, b) => Number(b.Valor) - Number(a.Valor)); break;
+    case 'valor_asc': arr.sort((a, b) => Number(a.Valor) - Number(b.Valor)); break;
+    case 'categoria_asc': arr.sort((a, b) => (a.Categoria || '').localeCompare(b.Categoria || '')); break;
+    default: arr.sort((a, b) => (b.Data || '').localeCompare(a.Data || ''));
+  }
+  return arr;
+}
+
+function renderExtrato() {
+  popularFiltrosExtrato();
+  renderFiltrosSalvos();
+  document.getElementById('tabTransacoes').classList.toggle('active-seg', state.extrato.aba === 'transacoes');
+  document.getElementById('tabLixeira').classList.toggle('active-seg', state.extrato.aba === 'lixeira');
+  document.getElementById('filtrosExtrato').classList.toggle('hidden', state.extrato.aba === 'lixeira');
+  const origem = state.extrato.aba === 'transacoes' ? state.transacoes : state.lixeira;
+  let filtradas = [...origem];
+  let ordenacao = 'data_desc';
+  if (state.extrato.aba === 'transacoes') {
+    const f = coletarFiltrosAtuais();
+    ordenacao = f.ordenacao;
+    if (f.busca) filtradas = filtradas.filter(t => (t.Descricao || '').toLowerCase().includes(f.busca.trim().toLowerCase()));
+    if (f.pessoa !== 'todas') filtradas = filtradas.filter(t => t.PessoaId === f.pessoa);
+    if (f.categoria !== 'todas') filtradas = filtradas.filter(t => t.Categoria === f.categoria);
+    if (f.periodo !== 'todos') { const { ini, fim } = getPeriodoAtivo('filtro'); if (ini && fim) filtradas = filtradas.filter(t => t.Data >= ini && t.Data <= fim); }
+    if (f.metodo !== 'todos') filtradas = filtradas.filter(t => t.MetodoPagamento === f.metodo);
+    if (f.statusExt !== 'todos') filtradas = filtradas.filter(t => statusExibicao(t) === f.statusExt);
+    if (f.valorMin) filtradas = filtradas.filter(t => Number(t.Valor) >= parseFloat(f.valorMin));
+    if (f.valorMax) filtradas = filtradas.filter(t => Number(t.Valor) <= parseFloat(f.valorMax));
+    if (f.tag !== 'todas') filtradas = filtradas.filter(t => getTags(t).includes(f.tag));
+    if (f.essencial !== 'todos') filtradas = filtradas.filter(t => (t.Essencial || '') === f.essencial);
+    if (f.somenteParceladas) filtradas = filtradas.filter(t => t.TotalParcelas && Number(t.TotalParcelas) > 1);
+  }
+  filtradas = ordenarTransacoes(filtradas, ordenacao);
+  const totalItens = filtradas.length;
+  const limite = state.extrato.pagina * state.extrato.porPagina;
+  const paginadas = filtradas.slice(0, limite);
+  document.getElementById('extratoResumo').textContent = totalItens ? `${totalItens} ${totalItens === 1 ? 'registro encontrado' : 'registros encontrados'}` : '';
+  document.getElementById('extratoVazio').classList.toggle('hidden', totalItens > 0);
+  document.getElementById('btnCarregarMais').classList.toggle('hidden', limite >= totalItens);
+  const lista = document.getElementById('listaExtrato');
+  lista.innerHTML = paginadas.map(t => renderItemExtrato(t, state.extrato.aba === 'lixeira')).join('');
+  lista.querySelectorAll('.btn-editar-tx').forEach(btn => btn.addEventListener('click', () => { const tx = state.transacoes.find(t => t.ID === btn.dataset.id); if (tx) abrirFormTransacao(tx); }));
+  lista.querySelectorAll('.btn-excluir-tx').forEach(btn => btn.addEventListener('click', () => solicitarExclusaoTransacao(btn.dataset.id)));
+  lista.querySelectorAll('.btn-restaurar-tx').forEach(btn => btn.addEventListener('click', () => restaurarTransacao(btn.dataset.id)));
+}
+
+function renderItemExtrato(t, isLixeira) {
+  const pessoa = state.pessoas.find(p => p.ID === t.PessoaId) || { Nome: t.PessoaNome, Cor: '#64748b', Iniciais: '?' };
+  const catObj = state.categorias.find(c => c.Categoria === t.Categoria);
+  const icone = catObj && catObj.Icone ? catObj.Icone : null;
+  const corValor = t.Tipo === 'Receita' ? 'var(--color-success)' : (t.Tipo === 'Despesa' ? 'var(--color-danger)' : 'var(--color-secondary)');
+  const sinal = t.Tipo === 'Receita' ? '+' : (t.Tipo === 'Despesa' ? '−' : '');
+  const acoes = isLixeira
+    ? `<button data-id="${t.ID}" class="btn-restaurar-tx text-xs font-semibold brand-text px-2 py-1">↺ Restaurar</button>`
+    : `<button data-id="${t.ID}" class="btn-editar-tx text-xs font-semibold text-secondary px-2 py-1">✏️</button><button data-id="${t.ID}" class="btn-excluir-tx text-xs font-semibold px-2 py-1" style="color:#f87171;">🗑️</button>`;
+  const avatarConteudo = icone || (pessoa.Iniciais || '?');
+  const tags = getTags(t);
+  const tagsHtml = tags.length ? '<div class="flex gap-1 flex-wrap mt-1">' + tags.map(tag => `<span class="tag-pill-filter">#${escapeHtml(tag)}</span>`).join('') + '</div>' : '';
+  return `<div class="card rounded-xl p-3 flex items-start gap-3">
+    <span class="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 mt-0.5" style="background:${(catObj ? catObj.Cor : pessoa.Cor)}25;color:${catObj ? catObj.Cor : pessoa.Cor}">${avatarConteudo}</span>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium truncate flex items-center gap-1.5 flex-wrap">${escapeHtml(t.Descricao || t.Categoria || 'Sem descrição')} ${badgeParcelaHtml(t)} ${badgeStatusHtml(t)} ${badgeEssencialHtml(t)}</p>
+      <p class="text-xs text-muted truncate">${escapeHtml(pessoa.Nome || '')} · ${escapeHtml(t.Categoria || '')}${t.Subcategoria ? ' · ' + escapeHtml(t.Subcategoria) : ''} · ${formatDataBR(t.Data)}</p>
+      ${tagsHtml}
+    </div>
+    <div class="text-right shrink-0"><p class="text-sm font-bold" style="color:${corValor}">${sinal} ${formatBRL(t.Valor)}</p><div class="flex justify-end">${acoes}</div></div>
+  </div>`;
+}
+
+function solicitarExclusaoTransacao(id) {
+  const tx = state.transacoes.find(t => t.ID === id);
+  if (tx && tx.TotalParcelas && Number(tx.TotalParcelas) > 1) abrirModalEscopoParcela(id);
+  else excluirTransacaoSimples(id);
+}
+function abrirModalEscopoParcela(id) { state.escopoParcelaAlvo = id; document.getElementById('modalEscopoParcela').classList.remove('hidden'); }
+document.getElementById('escopoCancelar').addEventListener('click', () => document.getElementById('modalEscopoParcela').classList.add('hidden'));
+document.getElementById('escopoSomenteEsta').addEventListener('click', () => executarExclusaoComEscopo('somente'));
+document.getElementById('escopoEstaEFuturas').addEventListener('click', () => executarExclusaoComEscopo('futuras'));
+document.getElementById('escopoTodas').addEventListener('click', () => executarExclusaoComEscopo('todas'));
+
+async function executarExclusaoComEscopo(escopo) {
+  const id = state.escopoParcelaAlvo;
+  document.getElementById('modalEscopoParcela').classList.add('hidden');
+  if (!id) return;
+  showLoading(true, 'Excluindo…');
+  try {
+    const alvo = state.transacoes.find(t => t.ID === id);
+    const resultado = await writeAction('deleteTransacaoEscopo', { ID: id, escopo }, () => {
+      let idsRemover = [id];
+      if (alvo && alvo.GrupoParcelamentoId) {
+        if (escopo === 'futuras') idsRemover = state.transacoes.filter(t => t.GrupoParcelamentoId === alvo.GrupoParcelamentoId && Number(t.NumeroParcela) >= Number(alvo.NumeroParcela)).map(t => t.ID);
+        else if (escopo === 'todas') idsRemover = state.transacoes.filter(t => t.GrupoParcelamentoId === alvo.GrupoParcelamentoId).map(t => t.ID);
+      }
+      idsRemover.forEach(rid => {
+        const idx = state.transacoes.findIndex(t => t.ID === rid);
+        if (idx > -1) { const [removida] = state.transacoes.splice(idx, 1); state.lixeira.push({ ...removida, DataExclusao: new Date().toISOString() }); }
+      });
+    });
+    if (state.online && resultado.ok) await carregarDadosIniciais(true); else saveCache();
+    renderExtrato();
+    if (state.currentView === 'dashboard') renderDashboard();
+    showToast('Exclusão realizada com sucesso.', 'success');
+  } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
+  finally { showLoading(false); state.escopoParcelaAlvo = null; }
+}
+async function excluirTransacaoSimples(id) {
+  const ok = await confirmarAcao('Excluir transação?', 'Ela será movida para a lixeira e poderá ser restaurada depois.');
+  if (!ok) return;
+  showLoading(true);
+  try {
+    await writeAction('deleteTransacao', { ID: id }, () => {
+      const idx = state.transacoes.findIndex(t => t.ID === id);
+      if (idx > -1) { const [removida] = state.transacoes.splice(idx, 1); state.lixeira.push({ ...removida, DataExclusao: new Date().toISOString() }); }
+    });
+    if (state.online) await carregarDadosIniciais(true); else saveCache();
+    renderExtrato();
+    showToast('Transação movida para a lixeira.', 'success');
+  } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+}
+async function restaurarTransacao(id) {
+  showLoading(true);
+  try {
+    await writeAction('restoreTransacao', { ID: id }, () => {
+      const idx = state.lixeira.findIndex(t => t.ID === id);
+      if (idx > -1) { const [restaurada] = state.lixeira.splice(idx, 1); delete restaurada.DataExclusao; state.transacoes.push(restaurada); }
+    });
+    if (state.online) await carregarDadosIniciais(true); else saveCache();
+    renderExtrato();
+    showToast('Transação restaurada com sucesso!', 'success');
+  } catch (err) { showToast('Erro ao restaurar: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+/* ============================================================================
+   10. APARÊNCIA + PERSONALIZAR DASHBOARD
+   ============================================================================ */
+function renderThemePresets() {
+  const grid = document.getElementById('themePresetsGrid');
+  grid.innerHTML = THEME_PRESETS.map((p, i) => {
+    const selecionado = state.theme.corPrimaria === p.primaria && state.theme.corSecundaria === p.secundaria;
+    return `<button type="button" data-preset="${i}" class="theme-preset-card ${selecionado ? 'selected' : ''} flex flex-col items-center gap-1.5">
+      <span class="theme-preset-dot" style="background:linear-gradient(135deg, ${p.primaria}, ${p.secundaria})"></span>
+      <span class="text-[10px] text-secondary text-center leading-tight">${p.nome}</span>
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => {
+    const preset = THEME_PRESETS[parseInt(btn.dataset.preset, 10)];
+    state.theme.corPrimaria = preset.primaria; state.theme.corSecundaria = preset.secundaria;
+    document.getElementById('apCorPrimaria').value = preset.primaria;
+    document.getElementById('apCorSecundaria').value = preset.secundaria;
+    persistirTema(); renderThemePresets();
+  }));
+}
+function persistirTema() { saveTheme(state.theme); applyTheme(state.theme); if (state.currentView === 'dashboard') renderDashboard(); }
+document.getElementById('apAppName').addEventListener('input', (e) => { state.theme.appName = e.target.value || DEFAULT_THEME.appName; persistirTema(); });
+document.getElementById('btnEscolherEmoji').addEventListener('click', () => abrirIconPicker('logo'));
+document.getElementById('apLogoUpload').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 900 * 1024) { showToast('Imagem muito grande (máx. ~900KB). Escolha uma imagem menor.', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = () => { state.theme.logoImage = reader.result; persistirTema(); document.getElementById('btnRemoverLogoImg').classList.remove('hidden'); showToast('Logo atualizado!', 'success'); };
+  reader.readAsDataURL(file);
+});
+document.getElementById('btnRemoverLogoImg').addEventListener('click', () => { state.theme.logoImage = null; persistirTema(); document.getElementById('btnRemoverLogoImg').classList.add('hidden'); document.getElementById('apLogoUpload').value = ''; });
+document.getElementById('btnTemaPersonalizado').addEventListener('click', () => document.getElementById('temaPersonalizadoWrap').classList.toggle('hidden'));
+document.getElementById('apCorPrimaria').addEventListener('input', (e) => { state.theme.corPrimaria = e.target.value; persistirTema(); renderThemePresets(); });
+document.getElementById('apCorSecundaria').addEventListener('input', (e) => { state.theme.corSecundaria = e.target.value; persistirTema(); renderThemePresets(); });
+document.querySelectorAll('.seg-mode').forEach(btn => btn.addEventListener('click', () => { state.theme.mode = btn.dataset.mode; document.querySelectorAll('.seg-mode').forEach(b => b.classList.toggle('active-seg', b === btn)); persistirTema(); }));
+document.getElementById('apFonte').addEventListener('change', (e) => { state.theme.fonte = e.target.value; persistirTema(); });
+document.getElementById('btnResetarAparencia').addEventListener('click', async () => {
+  const ok = await confirmarAcao('Restaurar aparência padrão?', 'Nome do app, logo, cores, modo e fonte voltarão aos valores originais.');
+  if (!ok) return;
+  state.theme = { ...DEFAULT_THEME }; persistirTema(); renderConfig();
+  showToast('Aparência restaurada ao padrão.', 'success');
+});
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (state.theme.mode === 'auto') applyTheme(state.theme); });
+
+function renderListaWidgetsDashboard() {
+  const wrap = document.getElementById('listaWidgetsDashboard');
+  wrap.innerHTML = DASHBOARD_WIDGETS_META.map(w => `
+    <div class="widget-row">
+      <span class="text-sm">${w.icone} ${w.label}</span>
+      <div class="toggle-switch sm ${state.dashboardWidgets[w.id] ? 'on' : ''}" data-widget="${w.id}"><div class="dot"></div></div>
+    </div>`).join('');
+  wrap.querySelectorAll('[data-widget]').forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.widget;
+    state.dashboardWidgets[id] = !state.dashboardWidgets[id];
+    saveDashboardWidgets(state.dashboardWidgets);
+    el.classList.toggle('on', state.dashboardWidgets[id]);
+    aplicarVisibilidadeWidgets();
+    if (state.dashboardWidgets[id] && state.currentView === 'dashboard') renderDashboard();
+  }));
+}
+
+const ICONES_DISPONIVEIS = [
+  '🏠','🏢','⚡','💧','📶','🔥','🛒','🍽️','🍔','⛽','🚕','🔧','🅿️','🏥','💊','🩺',
+  '🎓','📚','✏️','🎬','✈️','🎮','👕','🐾','📦','💼','🎉','💻','🎁','📈','🔖','🔁',
+  '🔃','💰','💳','🧾','💵','🏦','📱','📷','🎵','☕','🍺','✂️','🚌','🛳️','🏖️','🎂',
+  '🎈','👶','🧸','📺','🔌','🧴','🧺','🧹','🚿','🧯','🔑','🏋️','♟️','🐶','🐱','🌳',
+  '🚗','🚲','⛺','🎯','📅','🧠','❤️','⭐','🎨','🛠️','🧳','🍕','🥗','🧁','🎸','📖'
+];
+function abrirIconPicker(target) { state.iconPicker.target = target; renderIconGrid(''); document.getElementById('iconPickerBusca').value = ''; document.getElementById('modalIconPicker').classList.remove('hidden'); }
+function renderIconGrid(filtro) {
+  const grid = document.getElementById('iconPickerGrid');
+  grid.innerHTML = ICONES_DISPONIVEIS.map(icone => `<button type="button" data-icone="${icone}" class="icon-grid-btn">${icone}</button>`).join('');
+  grid.querySelectorAll('[data-icone]').forEach(btn => btn.addEventListener('click', () => selecionarIcone(btn.dataset.icone)));
+  void filtro;
+}
+document.getElementById('iconPickerBusca').addEventListener('input', (e) => renderIconGrid(e.target.value));
+document.getElementById('iconPickerCancelar').addEventListener('click', () => document.getElementById('modalIconPicker').classList.add('hidden'));
+function selecionarIcone(icone) {
+  if (state.iconPicker.target === 'logo') { state.theme.logoImage = null; state.theme.logoEmoji = icone; persistirTema(); }
+  else if (state.iconPicker.target === 'categoria') { document.getElementById('btnEscolherIconeCategoria').textContent = icone; }
+  document.getElementById('modalIconPicker').classList.add('hidden');
+}
+document.getElementById('btnEscolherIconeCategoria').addEventListener('click', () => abrirIconPicker('categoria'));
+
+/* ============================================================================
+   11. CONFIGURAÇÕES — Conexão, Diagnóstico, Reparo, Sincronização
+   ============================================================================ */
+document.getElementById('btnTestarConexao').addEventListener('click', async () => {
+  const url = document.getElementById('apiUrlInput').value.trim();
+  const resultEl = document.getElementById('apiTestResult');
+  if (!url) { resultEl.textContent = '⚠️ Informe uma URL.'; resultEl.style.color = 'var(--color-warning)'; return; }
+  resultEl.textContent = 'Testando…'; resultEl.style.color = 'var(--text-secondary)';
+  try {
+    const resp = await fetchComTimeout(url + '?action=ping', { method: 'GET', redirect: 'follow' });
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); }
+    catch (e) { throw new Error('A resposta não é JSON — verifique se "Quem pode acessar" está como "Qualquer pessoa".'); }
+    if (json.success) { resultEl.innerHTML = '✅ Conexão bem-sucedida! <span class="text-muted">(teste leve — não carrega os dados completos)</span>'; resultEl.style.color = 'var(--color-success)'; }
+    else throw new Error(json.error || 'Resposta inesperada da API.');
+  } catch (err) { resultEl.textContent = '❌ Falha: ' + err.message; resultEl.style.color = 'var(--color-danger)'; }
+});
+document.getElementById('btnSalvarApiUrl').addEventListener('click', async () => {
+  const url = document.getElementById('apiUrlInput').value.trim();
+  if (!url) { showToast('Informe uma URL válida.', 'error'); return; }
+  state.apiUrl = url;
+  localStorage.setItem(STORAGE_KEYS.API_URL, url);
+  showToast('URL da API salva com sucesso!', 'success');
+  await carregarDadosIniciais();
+  iniciarAutoSync();
+});
+document.getElementById('btnForcarSync').addEventListener('click', () => processarFila(false));
+document.getElementById('btnLimparCache').addEventListener('click', async () => {
+  const ok = await confirmarAcao('Limpar cache local?', 'Isso removerá os dados salvos localmente neste dispositivo (a planilha não será afetada).');
+  if (!ok) return;
+  localStorage.removeItem(STORAGE_KEYS.CACHE); localStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
+  showToast('Cache local limpo.', 'success');
+  await carregarDadosIniciais();
+});
+document.getElementById('btnLimparFila').addEventListener('click', async () => {
+  const q = getQueue();
+  if (!q.length) { showToast('A fila já está vazia.', 'info'); return; }
+  const ok = await confirmarAcao('Descartar fila pendente?', 'Existem ' + q.length + ' alteração(ões) aguardando sincronização. Elas NÃO serão enviadas à planilha.');
+  if (!ok) return;
+  saveQueue([]); refreshFilaPendenteInfo();
+  showToast('Fila de sincronização descartada.', 'success');
+});
+document.getElementById('btnDiagnostico').addEventListener('click', async () => {
+  const resultEl = document.getElementById('diagnosticoResultado');
+  resultEl.classList.remove('hidden');
+  resultEl.innerHTML = '<span class="spinner-sm"></span> Consultando planilha diretamente…';
+  try {
+    const data = await apiGet('diagnostico');
+    resultEl.innerHTML = `<p><strong>Planilha:</strong> ${escapeHtml(data.planilhaNome)}</p><p><strong>Pessoas:</strong> ${data.pessoas}</p><p><strong>Categorias:</strong> ${data.categorias}</p><p><strong>Transações:</strong> ${data.transacoes}</p><p><strong>Lixeira:</strong> ${data.lixeira}</p><p class="text-muted mt-1">Verificado em: ${new Date(data.timestamp).toLocaleString('pt-BR')}</p>`;
+  } catch (err) { resultEl.innerHTML = '❌ Não foi possível verificar: ' + escapeHtml(err.message); }
+});
+document.getElementById('btnRepararCategorias').addEventListener('click', async () => {
+  const resultEl = document.getElementById('reparoResultado');
+  resultEl.textContent = 'Verificando e reparando…'; resultEl.style.color = 'var(--text-secondary)';
+  showLoading(true, 'Reparando categorias…');
+  try {
+    const data = await apiPost('repararCategoriasPadrao', {});
+    if (data.reparado) { resultEl.textContent = `✅ ${data.linhasAdicionadas} categoria(s) padrão adicionada(s).`; resultEl.style.color = 'var(--color-success)'; }
+    else { resultEl.textContent = 'ℹ️ ' + data.motivo; resultEl.style.color = 'var(--text-secondary)'; }
+    await carregarDadosIniciais(true); renderConfig();
+  } catch (err) { resultEl.textContent = '❌ Falha: ' + err.message; resultEl.style.color = 'var(--color-danger)'; }
+  finally { showLoading(false); }
+});
+document.getElementById('btnRepararPessoas').addEventListener('click', async () => {
+  const resultEl = document.getElementById('reparoResultado');
+  resultEl.textContent = 'Verificando e reparando…'; resultEl.style.color = 'var(--text-secondary)';
+  showLoading(true, 'Reparando pessoas…');
+  try {
+    const data = await apiPost('repararPessoasPadrao', {});
+    if (data.reparado) { resultEl.textContent = `✅ ${data.linhasAdicionadas} pessoa(s) padrão adicionada(s).`; resultEl.style.color = 'var(--color-success)'; }
+    else { resultEl.textContent = 'ℹ️ ' + data.motivo; resultEl.style.color = 'var(--text-secondary)'; }
+    await carregarDadosIniciais(true); renderConfig();
+  } catch (err) { resultEl.textContent = '❌ Falha: ' + err.message; resultEl.style.color = 'var(--color-danger)'; }
+  finally { showLoading(false); }
+});
+
+const toggleAutoSyncEl = document.getElementById('toggleAutoSync');
+const selectSyncIntervalEl = document.getElementById('selectSyncInterval');
+function renderAutoSyncUI() {
+  toggleAutoSyncEl.classList.toggle('on', state.autoSync.enabled);
+  selectSyncIntervalEl.value = String(state.autoSync.intervalMs);
+  selectSyncIntervalEl.disabled = !state.autoSync.enabled;
+  const statusEl = document.getElementById('autoSyncStatus');
+  if (state.autoSync.enabled && state.apiUrl) statusEl.innerHTML = '<span class="pulse-dot"></span> Ativo — verificando a cada ' + Math.round(state.autoSync.intervalMs / 1000) + 's';
+  else if (!state.apiUrl) statusEl.textContent = 'Configure a URL da API para ativar.';
+  else statusEl.textContent = 'Desativado — use o botão "Sincronizar Agora" manualmente.';
+}
+toggleAutoSyncEl.addEventListener('click', () => { state.autoSync.enabled = !state.autoSync.enabled; localStorage.setItem(STORAGE_KEYS.AUTOSYNC_ON, String(state.autoSync.enabled)); renderAutoSyncUI(); iniciarAutoSync(); });
+selectSyncIntervalEl.addEventListener('change', () => { state.autoSync.intervalMs = parseInt(selectSyncIntervalEl.value, 10); localStorage.setItem(STORAGE_KEYS.AUTOSYNC_INTERVAL, String(state.autoSync.intervalMs)); renderAutoSyncUI(); iniciarAutoSync(); });
+
+function renderConfig() {
+  document.getElementById('apiUrlInput').value = state.apiUrl;
+  document.getElementById('apAppName').value = state.theme.appName;
+  document.getElementById('apCorPrimaria').value = state.theme.corPrimaria;
+  document.getElementById('apCorSecundaria').value = state.theme.corSecundaria;
+  document.getElementById('apFonte').value = state.theme.fonte;
+  document.getElementById('btnRemoverLogoImg').classList.toggle('hidden', !state.theme.logoImage);
+  document.querySelectorAll('.seg-mode').forEach(b => b.classList.toggle('active-seg', b.dataset.mode === state.theme.mode));
+  renderThemePresets();
+  renderListaWidgetsDashboard();
+  refreshFilaPendenteInfo();
+  renderAutoSyncUI();
+  atualizarPainelInstalacaoPWA();
+  const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
+  document.getElementById('ultimaSincInfo').textContent = lastSync ? new Date(lastSync).toLocaleString('pt-BR') : 'nunca';
+
+  const wrapPessoas = document.getElementById('listaPessoasConfig');
+  wrapPessoas.innerHTML = state.pessoas.length ? state.pessoas.map(p => `
+    <div class="flex items-center gap-2 surface-2 rounded-xl p-2.5">
+      <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:${p.Cor}30;color:${p.Cor}">${p.Iniciais || '?'}</span>
+      <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(p.Nome)}</p><p class="text-[11px] text-muted">${(p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true') ? 'Ativo' : 'Inativo'}</p></div>
+      <button data-id="${p.ID}" class="btn-editar-pessoa text-xs font-semibold brand-text px-2 py-1">Editar</button>
+    </div>`).join('') : '<div class="empty-state"><div class="empty-icon">👤</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" para cadastrar o casal.</p></div>';
+  wrapPessoas.querySelectorAll('.btn-editar-pessoa').forEach(btn => btn.addEventListener('click', () => abrirModalPessoa(state.pessoas.find(p => p.ID === btn.dataset.id))));
+
+  const wrapCats = document.getElementById('listaCategoriasConfig');
+  const tipos = ['Despesa', 'Receita', 'Transferência'];
+  const temCategorias = state.categorias.length > 0;
+  wrapCats.innerHTML = temCategorias ? tipos.map(tipo => {
+    const itens = state.categorias.filter(c => c.Tipo === tipo);
+    if (!itens.length) return '';
+    return `<div><p class="text-xs font-semibold text-muted mb-1.5">${tipo}s</p><div class="space-y-1.5">
+      ${itens.map(c => `<div class="flex items-center gap-2 surface-2 rounded-lg px-3 py-2">
+        <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${(c.Cor||'#64748B')}25;">${c.Icone || '🏷️'}</span>
+        <div class="flex-1 min-w-0"><p class="text-sm truncate">${escapeHtml(c.Categoria)} <span class="text-muted">/ ${escapeHtml(c.Subcategoria || '—')}</span></p>${Number(c.OrcamentoMensal) > 0 ? `<p class="text-[10px] text-muted">Orçamento: ${formatBRL(c.OrcamentoMensal)}/mês</p>` : ''}</div>
+        <button data-id="${c.ID}" class="btn-editar-cat text-xs font-semibold brand-text px-1.5">Editar</button>
+        <button data-id="${c.ID}" class="btn-excluir-cat text-xs font-semibold px-1.5" style="color:#f87171;">Excluir</button>
+      </div>`).join('')}</div></div>`;
+  }).join('') : '<div class="empty-state"><div class="empty-icon">🏷️</div><p class="empty-title">Nenhuma categoria cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" ou use "Reparar Categorias" acima.</p></div>';
+  wrapCats.querySelectorAll('.btn-editar-cat').forEach(btn => btn.addEventListener('click', () => abrirModalCategoria(state.categorias.find(c => c.ID === btn.dataset.id))));
+  wrapCats.querySelectorAll('.btn-excluir-cat').forEach(btn => btn.addEventListener('click', () => excluirCategoria(btn.dataset.id)));
+}
+
+document.getElementById('btnAddPessoa').addEventListener('click', () => abrirModalPessoa(null));
+document.getElementById('pessoaCancelar').addEventListener('click', () => document.getElementById('modalPessoa').classList.add('hidden'));
+function abrirModalPessoa(pessoa) {
+  document.getElementById('pessoaId').value = pessoa ? pessoa.ID : '';
+  document.getElementById('pessoaNome').value = pessoa ? pessoa.Nome : '';
+  document.getElementById('pessoaCor').value = pessoa ? pessoa.Cor : '#3B82F6';
+  document.getElementById('pessoaAtivo').checked = pessoa ? (pessoa.Ativo === true || pessoa.Ativo === 'TRUE' || pessoa.Ativo === 'true') : true;
+  document.getElementById('modalPessoa').classList.remove('hidden');
+}
+document.getElementById('pessoaSalvar').addEventListener('click', async () => {
+  const id = document.getElementById('pessoaId').value;
+  const nome = document.getElementById('pessoaNome').value.trim();
+  if (!nome) { showToast('Informe o nome da pessoa.', 'error'); return; }
+  const payload = { Nome: nome, Cor: document.getElementById('pessoaCor').value, Ativo: document.getElementById('pessoaAtivo').checked };
+  showLoading(true);
+  try {
+    if (id) {
+      payload.ID = id;
+      const resultado = await writeAction('updatePessoa', payload, () => { const idx = state.pessoas.findIndex(p => p.ID === id); if (idx > -1) state.pessoas[idx] = { ...state.pessoas[idx], ...payload }; });
+      if (resultado.ok) { const idx = state.pessoas.findIndex(p => p.ID === id); if (idx > -1) state.pessoas[idx] = resultado.data; }
+    } else {
+      const tempId = 'temp_' + Date.now();
+      const resultado = await writeAction('addPessoa', payload, () => { state.pessoas.push({ ...payload, ID: tempId, Iniciais: nome.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) }); });
+      if (resultado.ok) state.pessoas.push(resultado.data);
+    }
+    saveCache();
+    document.getElementById('modalPessoa').classList.add('hidden');
+    renderConfig();
+    showToast('Pessoa salva com sucesso!', 'success');
+  } catch (err) { showToast('Erro: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+});
+
+const CORES_CATEGORIA_SWATCHES = ['#6366F1','#F59E0B','#06B6D4','#EF4444','#8B5CF6','#EC4899','#14B8A6','#84CC16','#22C55E','#10B981','#3B82F6','#A855F7','#64748B'];
+function renderCategoriaSwatches(corAtual) {
+  const wrap = document.getElementById('categoriaSwatches');
+  wrap.innerHTML = CORES_CATEGORIA_SWATCHES.map(cor => `<span class="swatch ${cor.toLowerCase() === (corAtual||'').toLowerCase() ? 'selected' : ''}" data-cor="${cor}" style="background:${cor}"></span>`).join('');
+  wrap.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', () => { state.categoriaCorSelecionada = sw.dataset.cor; wrap.querySelectorAll('.swatch').forEach(s => s.classList.toggle('selected', s === sw)); }));
+}
+document.getElementById('btnAddCategoria').addEventListener('click', () => abrirModalCategoria(null));
+document.getElementById('categoriaCancelar').addEventListener('click', () => document.getElementById('modalCategoria').classList.add('hidden'));
+function abrirModalCategoria(categoria) {
+  document.getElementById('categoriaId').value = categoria ? categoria.ID : '';
+  document.getElementById('categoriaTipo').value = categoria ? categoria.Tipo : 'Despesa';
+  document.getElementById('categoriaNome').value = categoria ? categoria.Categoria : '';
+  document.getElementById('categoriaSubnome').value = categoria ? categoria.Subcategoria : '';
+  document.getElementById('categoriaOrcamento').value = categoria && Number(categoria.OrcamentoMensal) > 0 ? categoria.OrcamentoMensal : '';
+  document.getElementById('categoriaAtivo').checked = categoria ? (categoria.Ativo === true || categoria.Ativo === 'TRUE' || categoria.Ativo === 'true') : true;
+  document.getElementById('btnEscolherIconeCategoria').textContent = categoria && categoria.Icone ? categoria.Icone : '🏷️';
+  state.categoriaCorSelecionada = categoria && categoria.Cor ? categoria.Cor : CORES_CATEGORIA_SWATCHES[0];
+  renderCategoriaSwatches(state.categoriaCorSelecionada);
+  document.getElementById('modalCategoria').classList.remove('hidden');
+}
+document.getElementById('categoriaSalvar').addEventListener('click', async () => {
+  const id = document.getElementById('categoriaId').value;
+  const nome = document.getElementById('categoriaNome').value.trim();
+  if (!nome) { showToast('Informe o nome da categoria.', 'error'); return; }
+  const payload = {
+    Tipo: document.getElementById('categoriaTipo').value, Categoria: nome,
+    Subcategoria: document.getElementById('categoriaSubnome').value.trim(),
+    Icone: document.getElementById('btnEscolherIconeCategoria').textContent.trim(),
+    Cor: state.categoriaCorSelecionada,
+    OrcamentoMensal: parseFloat(document.getElementById('categoriaOrcamento').value) || 0,
+    Ativo: document.getElementById('categoriaAtivo').checked
+  };
+  showLoading(true);
+  try {
+    if (id) {
+      payload.ID = id;
+      const resultado = await writeAction('updateCategoria', payload, () => { const idx = state.categorias.findIndex(c => c.ID === id); if (idx > -1) state.categorias[idx] = { ...state.categorias[idx], ...payload }; });
+      if (resultado.ok) { const idx = state.categorias.findIndex(c => c.ID === id); if (idx > -1) state.categorias[idx] = resultado.data; }
+    } else {
+      const tempId = 'temp_' + Date.now();
+      const resultado = await writeAction('addCategoria', payload, () => { state.categorias.push({ ...payload, ID: tempId }); });
+      if (resultado.ok) state.categorias.push(resultado.data);
+    }
+    saveCache();
+    document.getElementById('modalCategoria').classList.add('hidden');
+    renderConfig();
+    showToast('Categoria salva com sucesso!', 'success');
+  } catch (err) { showToast('Erro: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+});
+async function excluirCategoria(id) {
+  const ok = await confirmarAcao('Excluir categoria?', 'Transações já lançadas com essa categoria manterão o registro histórico, mas ela deixará de aparecer para novos lançamentos.');
+  if (!ok) return;
+  showLoading(true);
+  try {
+    await writeAction('deleteCategoria', { ID: id }, () => { state.categorias = state.categorias.filter(c => c.ID !== id); });
+    saveCache(); renderConfig();
+    showToast('Categoria excluída.', 'success');
+  } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+/* ============================================================================
+   12. PWA — Service Worker + Instalação (Fase 3 · Item 3)
+   ============================================================================
+   Registro do Service Worker: só é possível quando a página é servida via
+   HTTPS ou via localhost — navegadores bloqueiam Service Workers em páginas
+   abertas diretamente do disco (file://) por motivo de segurança. Por isso,
+   este registro é protegido com verificações de suporte e falha
+   silenciosamente (sem quebrar o app) quando o ambiente não permite.
+   ============================================================================ */
+function pwaSuportado() {
+  return 'serviceWorker' in navigator && (window.isSecureContext || location.protocol === 'https:');
+}
+function pwaJaInstalado() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    if (!pwaSuportado()) {
+      console.info('Service Worker não registrado: este contexto não é seguro (HTTPS/localhost). O app continua funcionando normalmente, apenas sem os recursos de instalação/offline do PWA.');
+      return;
+    }
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('Falha ao registrar Service Worker (o app continua funcionando normalmente):', err.message);
+    });
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  state.pwaDeferredPrompt = e;
+  if (!localStorage.getItem(STORAGE_KEYS.PWA_BANNER_DISMISSED)) {
+    document.getElementById('installBanner').classList.remove('hidden');
+  }
+  atualizarPainelInstalacaoPWA();
+});
+
+window.addEventListener('appinstalled', () => {
+  state.pwaDeferredPrompt = null;
+  document.getElementById('installBanner').classList.add('hidden');
+  showToast('Aplicativo instalado com sucesso! 🎉', 'success');
+  atualizarPainelInstalacaoPWA();
+});
+
+document.getElementById('btnInstallBannerFechar').addEventListener('click', () => {
+  document.getElementById('installBanner').classList.add('hidden');
+  localStorage.setItem(STORAGE_KEYS.PWA_BANNER_DISMISSED, '1');
+});
+document.getElementById('btnInstallBannerAceitar').addEventListener('click', () => dispararPromptInstalacao());
+document.getElementById('btnInstalarPWA').addEventListener('click', () => dispararPromptInstalacao());
+
+async function dispararPromptInstalacao() {
+  if (!state.pwaDeferredPrompt) return;
+  state.pwaDeferredPrompt.prompt();
+  const escolha = await state.pwaDeferredPrompt.userChoice;
+  if (escolha.outcome === 'accepted') showToast('Instalando aplicativo…', 'info');
+  state.pwaDeferredPrompt = null;
+  document.getElementById('installBanner').classList.add('hidden');
+  atualizarPainelInstalacaoPWA();
+}
+
+function atualizarPainelInstalacaoPWA() {
+  const statusEl = document.getElementById('pwaStatusTexto');
+  const btnEl = document.getElementById('btnInstalarPWA');
+  const manualEl = document.getElementById('pwaInstrucoesManual');
+  if (!statusEl) return;
+
+  if (pwaJaInstalado()) {
+    statusEl.textContent = '✅ Você já está usando o app instalado.';
+    btnEl.classList.add('hidden');
+    manualEl.classList.add('hidden');
+    return;
+  }
+
+  if (state.pwaDeferredPrompt) {
+    statusEl.textContent = 'Seu navegador suporta instalação automática. Toque no botão abaixo:';
+    btnEl.classList.remove('hidden');
+    manualEl.classList.add('hidden');
+    return;
+  }
+
+  if (!pwaSuportado()) {
+    statusEl.innerHTML = '⚠️ A instalação automática requer que o app seja acessado via <strong>HTTPS</strong> (ex: GitHub Pages, Google Sites). Ao abrir o arquivo localmente (file://), a instalação completa não fica disponível — mas o app continua funcionando normalmente.';
+    btnEl.classList.add('hidden');
+    manualEl.classList.remove('hidden');
+    manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> botão de compartilhar 🔗 → "Adicionar à Tela de Início".<br>Isso cria um ícone de acesso rápido, mesmo sem o recurso completo de offline do Service Worker.';
+    return;
+  }
+
+  statusEl.textContent = 'Aguardando o navegador liberar a opção de instalação (pode levar alguns segundos após carregar o app).';
+  btnEl.classList.add('hidden');
+  manualEl.classList.remove('hidden');
+  manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> botão de compartilhar 🔗 → "Adicionar à Tela de Início".';
+}
+
+/* ============================================================================
+   13. INICIALIZAÇÃO
+   ============================================================================ */
+(async function init() {
+  applyTheme(state.theme);
+  aplicarVisibilidadeWidgets();
+  document.getElementById('apiUrlInput').value = state.apiUrl;
+  document.querySelectorAll('.seg-tipo')[0].classList.add('active-seg');
+  document.querySelectorAll('.seg-status')[0].classList.add('active-seg');
+  document.querySelectorAll('.seg-essencial')[0].classList.add('active-seg');
+  await carregarDadosIniciais();
+  if (getQueue().length && state.apiUrl) processarFila(true);
+  iniciarAutoSync();
+})();
+</script>
+</body>
+</html>
