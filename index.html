@@ -3,20 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>Finanças do Casal</title>
+<title>Controle de Gastos</title>
 
-<!-- ============ PWA: Manifest e Ícones (Fase 3 · Item 3) ============ -->
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 
-<!-- Meta tags para instalação como app no iOS (Safari não lê o manifest.json totalmente) -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Finanças" />
-
-<!-- Meta tag para instalação como app no Android/Chrome -->
+<meta name="apple-mobile-web-app-title" content="Gastos" />
 <meta name="mobile-web-app-capable" content="yes" />
 
 <meta name="theme-color" content="#0f172a" id="metaThemeColor" />
@@ -109,6 +105,7 @@
   .badge-pendente { background: rgba(245,158,11,.15); color:#d97706; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
   .badge-essencial { background: rgba(34,197,94,.15); color:#22c55e; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
   .badge-superfluo { background: rgba(251,146,60,.15); color:#f97316; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; }
+  .badge-recorrente { background: rgba(34,211,238,.15); color:#22d3ee; font-size:10px; font-weight:600; padding:2px 6px; border-radius:6px; white-space:nowrap; }
   .preview-parcela-item { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; border-radius:8px; background: var(--bg-surface-2); font-size:12px; }
   .debt-card { background: var(--bg-surface-2); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; }
   .progress-track { width:100%; background: var(--bg-surface-3); border-radius:999px; height:7px; overflow:hidden; }
@@ -122,6 +119,16 @@
   .saved-filter-chip button { opacity:.6; font-weight:700; }
   .install-banner { position:fixed; left:12px; right:12px; bottom:calc(84px + var(--safe-bottom)); z-index:40; background: var(--bg-surface); border:1px solid var(--border-color); border-radius:16px; padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.35); display:flex; align-items:center; gap:10px; }
   .install-banner.hidden { display:none; }
+  /* ---- Organização do extrato: grupos por dia e ações rápidas ---- */
+  .day-group { margin-bottom: 14px; }
+  .day-group:last-child { margin-bottom: 0; }
+  .day-group-header { display:flex; justify-content:space-between; align-items:baseline; padding: 4px 2px 8px; }
+  .day-group-header .day-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .day-group-header .day-subtotal { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+  .item-actions-btn { width: 30px; height: 30px; border-radius: 999px; display:flex; align-items:center; justify-content:center; color: var(--text-muted); transition: background .15s ease; flex-shrink:0; }
+  .item-actions-btn:active { background: var(--bg-surface-3); }
+  .acoes-item-btn { width: 100%; text-align:left; padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; background: var(--bg-surface-2); transition: opacity .15s ease; }
+  .acoes-item-btn:active { opacity: .7; }
 </style>
 </head>
 <body class="min-h-screen pb-24">
@@ -130,11 +137,11 @@
   <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
     <div class="flex items-center gap-2 min-w-0">
       <div id="appLogoWrap" class="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center text-lg shrink-0 overflow-hidden">
-        <span id="appLogoEmoji">💰</span>
+        <span id="appLogoEmoji">💸</span>
         <img id="appLogoImg" class="hidden w-full h-full object-cover" alt="Logo" />
       </div>
       <div class="min-w-0">
-        <h1 id="appTitleHeader" class="text-base font-bold leading-none truncate">Finanças do Casal</h1>
+        <h1 id="appTitleHeader" class="text-base font-bold leading-none truncate">Controle de Gastos</h1>
         <p id="connStatus" class="text-[11px] text-secondary leading-none mt-1">Verificando conexão…</p>
       </div>
     </div>
@@ -154,7 +161,6 @@
 
 <main class="max-w-2xl mx-auto px-4 pt-4">
 
-  <!-- ---------- DASHBOARD ---------- -->
   <section id="view-dashboard" class="view active space-y-4">
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-bold">Visão Geral</h2>
@@ -177,34 +183,32 @@
 
     <div id="dashboardConteudo" class="space-y-4">
       <div class="card rounded-2xl p-4">
-        <p class="text-xs text-secondary">Saldo do período (Receitas − Despesas)</p>
-        <p id="saldoGeral" class="text-3xl font-extrabold mt-1">R$ 0,00</p>
-        <div class="flex gap-4 mt-3 text-xs">
-          <div><span class="font-semibold" style="color:var(--color-success)">▲ Receitas</span><br><span id="totalReceitas" class="font-bold text-sm">R$ 0,00</span></div>
-          <div><span class="font-semibold" style="color:var(--color-danger)">▼ Despesas</span><br><span id="totalDespesas" class="font-bold text-sm">R$ 0,00</span></div>
-        </div>
+        <p class="text-xs text-secondary">Total de gastos no período</p>
+        <p id="totalGastosPeriodo" class="text-3xl font-extrabold mt-1">R$ 0,00</p>
+        <p id="totalGastosContagem" class="text-xs text-muted mt-2"></p>
       </div>
 
       <div id="panelSaldosPessoa">
+        <p class="text-sm font-semibold mb-2 px-1">🧑‍🤝‍🧑 Gastos por pessoa</p>
         <div id="saldosPorPessoa" class="grid grid-cols-2 gap-3"></div>
       </div>
 
       <div id="panelDividas" class="card rounded-2xl p-4">
         <div class="flex items-center justify-between mb-1">
-          <p class="text-sm font-semibold">💳 Dívidas &amp; Parcelamentos</p>
+          <p class="text-sm font-semibold">💳 Compras parceladas</p>
         </div>
         <p id="compromissoMesResumo" class="text-xs text-secondary mb-3"></p>
         <div id="listaDividas" class="space-y-3"></div>
         <div id="dividasVazio" class="hidden empty-state">
           <div class="empty-icon">💳</div>
           <p class="empty-title">Nenhuma compra parcelada em aberto</p>
-          <p class="empty-sub">Ao registrar uma compra parcelada em "Nova Transação", o acompanhamento aparecerá aqui.</p>
+          <p class="empty-sub">Ao registrar uma compra parcelada em "Novo gasto", o acompanhamento aparecerá aqui.</p>
         </div>
       </div>
 
       <div id="panelOrcamento" class="card rounded-2xl p-4">
         <div class="flex items-center justify-between mb-1">
-          <p class="text-sm font-semibold">🎯 Orçamento vs. Realizado</p>
+          <p class="text-sm font-semibold">🎯 Orçamento x Realizado</p>
           <span class="text-[10px] text-muted">Mês atual</span>
         </div>
         <p class="text-xs text-secondary mb-3">Compare o quanto já foi gasto em relação ao limite definido por categoria.</p>
@@ -212,46 +216,45 @@
         <div id="orcamentoVazio" class="hidden empty-state">
           <div class="empty-icon">🎯</div>
           <p class="empty-title">Nenhum orçamento definido</p>
-          <p class="empty-sub">Defina um "Orçamento mensal" ao editar uma categoria em Configurações para acompanhar aqui.</p>
+          <p class="empty-sub">Defina um orçamento mensal ao editar uma categoria em Configurações para acompanhá-lo aqui.</p>
         </div>
       </div>
 
       <div id="panelQuemPagou" class="card rounded-2xl p-4">
-        <p class="text-sm font-semibold mb-3">Quem pagou o quê no período</p>
+        <p class="text-sm font-semibold mb-3">Quem gastou o quê no período</p>
         <div id="quemPagouQue" class="space-y-3"></div>
       </div>
 
       <div id="panelEssencial" class="card rounded-2xl p-4">
-        <p class="text-sm font-semibold mb-3">⚖️ Essencial vs. Supérfluo</p>
+        <p class="text-sm font-semibold mb-3">⚖️ Essencial x Supérfluo</p>
         <div id="essencialConteudo"></div>
         <div id="essencialVazio" class="hidden empty-state">
           <div class="empty-icon">⚖️</div>
-          <p class="empty-title">Nenhuma despesa classificada</p>
-          <p class="empty-sub">Ao lançar uma transação, marque-a como Essencial ou Supérfluo para ver o comparativo aqui.</p>
+          <p class="empty-title">Nenhum gasto classificado</p>
+          <p class="empty-sub">Ao lançar um gasto, marque-o como Essencial ou Supérfluo para ver o comparativo aqui.</p>
         </div>
       </div>
 
       <div id="panelChartCategorias" class="card rounded-2xl p-4">
-        <p class="text-sm font-semibold mb-3">Despesas por Categoria</p>
+        <p class="text-sm font-semibold mb-3">Gastos por categoria</p>
         <div class="relative" style="height:240px;"><canvas id="chartCategorias"></canvas></div>
         <div id="chartCategoriasVazio" class="hidden empty-state">
           <div class="empty-icon">🧾</div>
-          <p class="empty-title">Nenhuma despesa neste período</p>
-          <p class="empty-sub">Assim que você lançar uma despesa, o gráfico de categorias aparece aqui automaticamente.</p>
+          <p class="empty-title">Nenhum gasto neste período</p>
+          <p class="empty-sub">Assim que você lançar um gasto, o gráfico de categorias aparece aqui automaticamente.</p>
         </div>
       </div>
 
       <div id="panelChartEvolucao" class="card rounded-2xl p-4">
-        <p class="text-sm font-semibold mb-3">Evolução Mensal (últimos 6 meses)</p>
+        <p class="text-sm font-semibold mb-3">Evolução de gastos (últimos 6 meses)</p>
         <div class="relative" style="height:220px;"><canvas id="chartEvolucao"></canvas></div>
       </div>
     </div>
   </section>
 
-  <!-- ---------- NOVA TRANSAÇÃO ---------- -->
   <section id="view-transacao" class="view space-y-4">
     <div class="flex items-center justify-between">
-      <h2 id="tituloFormTransacao" class="text-lg font-bold">Nova Transação</h2>
+      <h2 id="tituloFormTransacao" class="text-lg font-bold">Novo gasto</h2>
       <button data-nav="dashboard" class="text-secondary text-sm">Cancelar</button>
     </div>
 
@@ -259,16 +262,11 @@
 
     <form id="formTransacao" class="space-y-4">
       <input type="hidden" id="txId" />
-      <div class="segmented grid grid-cols-3 rounded-xl p-1 gap-1">
-        <button type="button" data-tipo="Despesa" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Despesa</button>
-        <button type="button" data-tipo="Receita" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Receita</button>
-        <button type="button" data-tipo="Transferência" class="seg-tipo seg-item py-2 rounded-lg text-sm font-medium">Transf.</button>
-      </div>
 
       <div id="parcelamentoToggleWrap" class="flex items-center justify-between surface-2 rounded-xl px-3 py-2.5">
         <div>
           <p class="text-sm font-medium">🔁 Compra parcelada</p>
-          <p class="text-[11px] text-muted">Divide o valor em N parcelas mensais</p>
+          <p class="text-[11px] text-muted">Divide o valor total em N parcelas mensais</p>
         </div>
         <div id="toggleParcelamento" class="toggle-switch"><div class="dot"></div></div>
       </div>
@@ -306,7 +304,7 @@
         <input required type="date" id="txData" class="w-full border rounded-xl px-4 py-2.5" />
       </div>
       <div>
-        <label class="text-xs text-secondary mb-1 block">Quem pagou / recebeu</label>
+        <label class="text-xs text-secondary mb-1 block">Quem gastou</label>
         <div id="txPessoaChips" class="flex gap-2 flex-wrap"></div>
       </div>
       <div class="grid grid-cols-2 gap-3">
@@ -321,7 +319,7 @@
       </div>
       <div>
         <label class="text-xs text-secondary mb-1 block">Descrição</label>
-        <input type="text" id="txDescricao" maxlength="120" placeholder="Ex: Supermercado do mês" class="w-full border rounded-xl px-4 py-2.5" />
+        <input type="text" id="txDescricao" maxlength="120" placeholder="Ex.: supermercado do mês" class="w-full border rounded-xl px-4 py-2.5" />
       </div>
 
       <div>
@@ -339,9 +337,9 @@
       </div>
 
       <div>
-        <label class="text-xs text-secondary mb-1 block">Método de Pagamento</label>
+        <label class="text-xs text-secondary mb-1 block">Método de pagamento</label>
         <select id="txMetodo" class="w-full border rounded-xl px-3 py-2.5">
-          <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência Bancária</option><option>Outro</option>
+          <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência bancária</option><option>Outro</option>
         </select>
       </div>
       <div id="statusWrap">
@@ -353,23 +351,22 @@
       </div>
 
       <button type="submit" id="btnSalvarTx" class="w-full brand-bg font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 active:scale-[.98] transition">
-        <span id="btnSalvarTxLabel">Salvar Transação</span>
+        <span id="btnSalvarTxLabel">Salvar gasto</span>
       </button>
     </form>
   </section>
 
-  <!-- ---------- EXTRATO ---------- -->
   <section id="view-extrato" class="view space-y-4">
     <div class="flex items-center justify-between">
-      <h2 class="text-lg font-bold">Extrato</h2>
+      <h2 class="text-lg font-bold">Extrato de gastos</h2>
       <div class="segmented flex rounded-lg p-1 text-xs">
-        <button id="tabTransacoes" class="px-3 py-1.5 rounded-md font-semibold">Transações</button>
+        <button id="tabTransacoes" class="px-3 py-1.5 rounded-md font-semibold">Gastos</button>
         <button id="tabLixeira" class="px-3 py-1.5 rounded-md font-semibold seg-item">Lixeira</button>
       </div>
     </div>
 
     <div id="filtrosExtrato" class="card rounded-2xl p-3 space-y-2">
-      <input type="text" id="filtroBusca" placeholder="🔎 Buscar por descrição…" class="w-full border rounded-lg px-3 py-2 text-sm" />
+      <input type="text" id="filtroBusca" placeholder="🔎 Buscar por descrição, categoria ou tag…" class="w-full border rounded-lg px-3 py-2 text-sm" />
       <div class="grid grid-cols-2 gap-2">
         <select id="filtroPeriodo" class="border rounded-lg text-sm px-2 py-2">
           <option value="todos">Todo o período</option>
@@ -394,7 +391,7 @@
         <div class="grid grid-cols-2 gap-2 pt-2">
           <select id="filtroMetodo" class="border rounded-lg text-sm px-2 py-2">
             <option value="todos">Todo método</option>
-            <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência Bancária</option><option>Outro</option>
+            <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência bancária</option><option>Outro</option>
           </select>
           <select id="filtroStatusExt" class="border rounded-lg text-sm px-2 py-2">
             <option value="todos">Todo status</option>
@@ -427,13 +424,14 @@
             <option value="data_asc">Data (mais antiga primeiro)</option>
             <option value="valor_desc">Maior valor primeiro</option>
             <option value="valor_asc">Menor valor primeiro</option>
-            <option value="categoria_asc">Categoria (A-Z)</option>
+            <option value="categoria_asc">Categoria (A a Z)</option>
           </select>
+          <p class="text-[10px] text-muted mt-1">O agrupamento por dia com subtotal só aparece nas ordenações por data.</p>
         </div>
 
         <div class="pt-1">
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[11px] text-secondary font-semibold">⭐ Filtros Salvos</span>
+            <span class="text-[11px] text-secondary font-semibold">⭐ Filtros salvos</span>
             <button id="btnSalvarFiltroAtual" type="button" class="text-[11px] brand-text font-semibold">+ Salvar atual</button>
           </div>
           <div id="listaFiltrosSalvos" class="flex gap-1.5 flex-wrap"></div>
@@ -451,12 +449,11 @@
     <button id="btnCarregarMais" class="hidden w-full py-3 text-sm brand-text font-semibold">Carregar mais</button>
     <div id="extratoVazio" class="hidden empty-state">
       <div class="empty-icon">📭</div>
-      <p class="empty-title">Nenhuma transação encontrada</p>
-      <p class="empty-sub">Tente ajustar os filtros acima, ou toque no botão "+" para lançar sua primeira transação deste período.</p>
+      <p class="empty-title">Nenhum gasto encontrado</p>
+      <p class="empty-sub">Tente ajustar os filtros acima ou toque no botão "+" para lançar seu primeiro gasto deste período.</p>
     </div>
   </section>
 
-  <!-- ---------- CONFIGURAÇÕES ---------- -->
   <section id="view-config" class="view space-y-5">
     <h2 class="text-lg font-bold">Configurações</h2>
 
@@ -470,13 +467,13 @@
         <label class="text-xs text-secondary mb-2 block">Logotipo</label>
         <div class="flex items-center gap-3">
           <div id="apLogoPreviewWrap" class="w-14 h-14 rounded-2xl brand-gradient flex items-center justify-center text-2xl overflow-hidden shrink-0">
-            <span id="apLogoPreviewEmoji">💰</span>
+            <span id="apLogoPreviewEmoji">💸</span>
             <img id="apLogoPreviewImg" class="hidden w-full h-full object-cover" alt="Logo" />
           </div>
           <div class="flex-1 grid grid-cols-2 gap-2">
-            <button id="btnEscolherEmoji" type="button" class="border rounded-lg py-2 text-xs font-semibold">Escolher Emoji</button>
+            <button id="btnEscolherEmoji" type="button" class="border rounded-lg py-2 text-xs font-semibold">Escolher emoji</button>
             <label class="border rounded-lg py-2 text-xs font-semibold text-center cursor-pointer">
-              Enviar Imagem
+              Enviar imagem
               <input type="file" id="apLogoUpload" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
             </label>
           </div>
@@ -503,60 +500,70 @@
       <div>
         <label class="text-xs text-secondary mb-1 block">Fonte</label>
         <select id="apFonte" class="w-full border rounded-lg px-3 py-2.5 text-sm">
-          <option value="system">Padrão do Sistema</option>
+          <option value="system">Padrão do sistema</option>
           <option value="Inter">Inter (moderna)</option>
           <option value="Poppins">Poppins (arredondada)</option>
           <option value="Sora">Sora (geométrica)</option>
           <option value="Nunito">Nunito (amigável)</option>
         </select>
       </div>
-      <button id="btnResetarAparencia" class="w-full border rounded-lg py-2.5 text-xs font-semibold text-secondary">Restaurar Aparência Padrão</button>
+      <button id="btnResetarAparencia" class="w-full border rounded-lg py-2.5 text-xs font-semibold text-secondary">Restaurar aparência padrão</button>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-1">
-      <p class="text-sm font-semibold mb-1">📊 Personalizar Dashboard</p>
-      <p class="text-xs text-secondary mb-2">Escolha quais indicadores aparecem na tela inicial. O card de "Saldo do período" é sempre exibido.</p>
+      <p class="text-sm font-semibold mb-1">📊 Personalizar painel inicial</p>
+      <p class="text-xs text-secondary mb-2">Escolha quais indicadores aparecem na tela inicial. O card "Total de gastos no período" é sempre exibido.</p>
       <div id="listaWidgetsDashboard"></div>
     </div>
 
-    <!-- PWA: Instalar App (Fase 3 · Item 3) -->
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">📲 Instalar como Aplicativo</p>
-      <p class="text-xs text-secondary" id="pwaStatusTexto">Verificando suporte de instalação…</p>
-      <button id="btnInstalarPWA" class="hidden w-full brand-bg rounded-lg py-2.5 text-sm font-bold">Instalar Finanças do Casal</button>
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold">🔁 Gastos recorrentes</p>
+        <button id="btnAddRecorrente" class="brand-text text-xs font-semibold">+ Adicionar</button>
+      </div>
+      <p class="text-xs text-secondary">Contas fixas e assinaturas são lançadas automaticamente todo mês, como pendentes, no dia escolhido — sem duplicar.</p>
+      <div id="listaRecorrentesConfig" class="space-y-1.5"></div>
+      <button id="btnGerarRecorrentesAgora" class="w-full border rounded-lg py-2.5 text-xs font-semibold">Verificar lançamentos deste mês agora</button>
+      <p id="gerarRecorrentesResultado" class="text-xs"></p>
+    </div>
+
+    <div class="card rounded-2xl p-4 space-y-3">
+      <p class="text-sm font-semibold">📲 Instalar como aplicativo</p>
+      <p class="text-xs text-secondary" id="pwaStatusTexto">Verificando suporte à instalação…</p>
+      <button id="btnInstalarPWA" class="hidden w-full brand-bg rounded-lg py-2.5 text-sm font-bold">Instalar Controle de Gastos</button>
       <div id="pwaInstrucoesManual" class="hidden text-xs surface-2 rounded-lg p-3 space-y-2"></div>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">🔗 Conexão com Google Sheets</p>
+      <p class="text-sm font-semibold">🔗 Conexão com o Google Sheets</p>
       <p class="text-xs text-secondary">Cole aqui a URL do Web App publicado no Google Apps Script.</p>
       <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/XXXXX/exec" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
       <div class="flex gap-2">
-        <button id="btnTestarConexao" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Testar Conexão</button>
+        <button id="btnTestarConexao" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Testar conexão</button>
         <button id="btnSalvarApiUrl" class="flex-1 brand-bg rounded-lg py-2.5 text-sm font-bold">Salvar</button>
       </div>
       <p id="apiTestResult" class="text-xs"></p>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">🩺 Diagnóstico do Servidor</p>
+      <p class="text-sm font-semibold">🩺 Diagnóstico do servidor</p>
       <p class="text-xs text-secondary">Verifica diretamente na planilha quantas linhas existem em cada aba.</p>
-      <button id="btnDiagnostico" class="w-full border rounded-lg py-2.5 text-sm font-semibold">Verificar Planilha Agora</button>
+      <button id="btnDiagnostico" class="w-full border rounded-lg py-2.5 text-sm font-semibold">Verificar planilha agora</button>
       <div id="diagnosticoResultado" class="hidden text-xs surface-2 rounded-lg p-3 space-y-1"></div>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">🛠️ Reparar Dados Padrão</p>
-      <p class="text-xs text-secondary">Use se a planilha ficou incompleta por uma falha de conexão anterior.</p>
+      <p class="text-sm font-semibold">🛠️ Reparar dados padrão</p>
+      <p class="text-xs text-secondary">Use se a planilha tiver ficado incompleta por uma falha de conexão anterior.</p>
       <div class="flex gap-2">
-        <button id="btnRepararCategorias" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar Categorias</button>
-        <button id="btnRepararPessoas" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar Pessoas</button>
+        <button id="btnRepararCategorias" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar categorias</button>
+        <button id="btnRepararPessoas" class="flex-1 border rounded-lg py-2.5 text-xs font-semibold">Reparar pessoas</button>
       </div>
       <p id="reparoResultado" class="text-xs"></p>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">📱 Sincronização entre Dispositivos</p>
+      <p class="text-sm font-semibold">📱 Sincronização entre dispositivos</p>
       <p class="text-xs text-secondary">Busca automaticamente atualizações feitas em outros aparelhos.</p>
       <div class="flex items-center justify-between surface-2 rounded-xl px-3 py-2.5">
         <span class="text-sm">Sincronização automática</span>
@@ -587,18 +594,18 @@
         <p class="text-sm font-semibold">🏷️ Categorias</p>
         <button id="btnAddCategoria" class="brand-text text-xs font-semibold">+ Adicionar</button>
       </div>
-      <div id="listaCategoriasConfig" class="space-y-3"></div>
+      <div id="listaCategoriasConfig" class="space-y-1.5"></div>
     </div>
 
     <div class="card rounded-2xl p-4 space-y-3">
-      <p class="text-sm font-semibold">💾 Dados Locais</p>
+      <p class="text-sm font-semibold">💾 Dados locais</p>
       <p class="text-xs text-secondary">Última sincronização: <span id="ultimaSincInfo">nunca</span></p>
       <p class="text-xs text-secondary">Pendências na fila de sincronização: <span id="filaPendenteInfo">0</span></p>
       <div class="flex gap-2">
-        <button id="btnForcarSync" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Sincronizar Agora</button>
-        <button id="btnLimparCache" class="flex-1 rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Limpar Cache</button>
+        <button id="btnForcarSync" class="flex-1 border rounded-lg py-2.5 text-sm font-semibold">Sincronizar agora</button>
+        <button id="btnLimparCache" class="flex-1 rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Limpar cache</button>
       </div>
-      <button id="btnLimparFila" class="w-full rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Descartar Fila Pendente</button>
+      <button id="btnLimparFila" class="w-full rounded-lg py-2.5 text-sm font-semibold" style="background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171;">Descartar fila pendente</button>
     </div>
   </section>
 
@@ -626,12 +633,11 @@
   </div>
 </nav>
 
-<!-- Banner flutuante de instalação PWA (aparece quando o navegador permite instalar) -->
 <div id="installBanner" class="install-banner hidden">
   <span class="text-2xl">📲</span>
   <div class="flex-1">
-    <p class="text-sm font-semibold">Instalar Finanças do Casal</p>
-    <p class="text-[11px] text-muted">Acesse como um app, direto da tela inicial.</p>
+    <p class="text-sm font-semibold">Instalar Controle de Gastos</p>
+    <p class="text-[11px] text-muted">Acesse como um aplicativo, direto da tela inicial.</p>
   </div>
   <button id="btnInstallBannerAceitar" class="brand-bg rounded-lg px-3 py-1.5 text-xs font-bold">Instalar</button>
   <button id="btnInstallBannerFechar" class="text-muted text-lg px-1">×</button>
@@ -653,17 +659,28 @@
   </div>
 </div>
 
+<div id="modalAcoesItem" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-2">
+    <p id="acoesItemTitulo" class="font-bold text-base truncate mb-1">Gasto</p>
+    <button id="acaoMarcarPago" class="hidden acoes-item-btn">✅ Marcar como pago</button>
+    <button id="acaoDuplicar" class="acoes-item-btn">📄 Duplicar lançamento</button>
+    <button id="acaoEditar" class="acoes-item-btn">✏️ Editar</button>
+    <button id="acaoExcluir" class="acoes-item-btn" style="background:rgba(248,113,113,.1); color:#f87171;">🗑️ Excluir</button>
+    <button id="acaoCancelar" class="w-full surface-2 rounded-xl py-2.5 text-sm font-semibold mt-2">Cancelar</button>
+  </div>
+</div>
+
 <div id="modalEscopoParcela" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
   <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3">
     <p class="font-bold text-base">Excluir parcela</p>
-    <p class="text-sm text-secondary">Esta transação faz parte de um parcelamento. O que você deseja excluir?</p>
+    <p class="text-sm text-secondary">Este gasto faz parte de um parcelamento. O que você deseja excluir?</p>
     <button id="escopoSomenteEsta" class="w-full surface-2 rounded-xl py-3 text-sm font-semibold text-left px-4">
       <span class="block font-bold">Somente esta parcela</span>
       <span class="block text-xs text-muted font-normal">As demais parcelas continuam normalmente.</span>
     </button>
     <button id="escopoEstaEFuturas" class="w-full surface-2 rounded-xl py-3 text-sm font-semibold text-left px-4">
       <span class="block font-bold">Esta e as parcelas futuras</span>
-      <span class="block text-xs text-muted font-normal">Útil ao cancelar/renegociar o restante da dívida.</span>
+      <span class="block text-xs text-muted font-normal">Útil ao cancelar ou renegociar o restante da dívida.</span>
     </button>
     <button id="escopoTodas" class="w-full rounded-xl py-3 text-sm font-semibold text-left px-4" style="background:rgba(248,113,113,.1); color:#f87171;">
       <span class="block font-bold">Todas as parcelas do grupo</span>
@@ -677,7 +694,7 @@
   <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3">
     <p class="font-bold text-base">Salvar filtro atual</p>
     <p class="text-sm text-secondary">Dê um nome para acessar rapidamente esta combinação de filtros depois.</p>
-    <input type="text" id="nomeFiltroSalvo" maxlength="30" placeholder="Ex: Gastos do Thiago em Lazer" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+    <input type="text" id="nomeFiltroSalvo" maxlength="30" placeholder="Ex.: gastos de lazer" class="w-full border rounded-lg px-3 py-2.5 text-sm" />
     <div class="flex gap-2 pt-1">
       <button id="salvarFiltroCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
       <button id="salvarFiltroConfirmar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
@@ -701,7 +718,7 @@
 
 <div id="modalCategoria" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
   <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3 max-h-[85vh] overflow-y-auto">
-    <p class="font-bold text-base">Categoria</p>
+    <p class="font-bold text-base">Categoria de gasto</p>
     <input type="hidden" id="categoriaId" />
     <div class="flex items-center gap-3">
       <button type="button" id="btnEscolherIconeCategoria" class="icon-grid-btn selected" style="width:52px;height:52px;font-size:24px;">🏷️</button>
@@ -710,22 +727,58 @@
         <div id="categoriaSwatches" class="flex gap-2 flex-wrap"></div>
       </div>
     </div>
-    <div><label class="text-xs text-secondary mb-1 block">Tipo</label>
-      <select id="categoriaTipo" class="w-full border rounded-lg px-3 py-2.5">
-        <option>Despesa</option><option>Receita</option><option>Transferência</option>
-      </select>
-    </div>
     <div><label class="text-xs text-secondary mb-1 block">Categoria</label><input type="text" id="categoriaNome" class="w-full border rounded-lg px-3 py-2.5" /></div>
     <div><label class="text-xs text-secondary mb-1 block">Subcategoria</label><input type="text" id="categoriaSubnome" class="w-full border rounded-lg px-3 py-2.5" /></div>
     <div>
       <label class="text-xs text-secondary mb-1 block">Orçamento mensal (R$) — opcional</label>
       <input type="number" step="0.01" min="0" id="categoriaOrcamento" placeholder="0,00" class="w-full border rounded-lg px-3 py-2.5" />
-      <p class="text-[11px] text-muted mt-1">Se definido, esta categoria aparecerá no painel "Orçamento vs. Realizado" do Dashboard.</p>
+      <p class="text-[11px] text-muted mt-1">Se definido, esta categoria aparecerá no painel "Orçamento x Realizado" da tela inicial.</p>
     </div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="categoriaAtivo" checked class="w-4 h-4" /> Ativa</label>
     <div class="flex gap-2 pt-1">
       <button id="categoriaCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
       <button id="categoriaSalvar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalRecorrente" class="hidden fixed inset-0 z-50 modal-backdrop flex items-end sm:items-center justify-center">
+  <div class="card rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5 space-y-3 max-h-[85vh] overflow-y-auto">
+    <p class="font-bold text-base">Gasto recorrente</p>
+    <input type="hidden" id="recorrenteId" />
+    <div>
+      <label class="text-xs text-secondary mb-1 block">Descrição</label>
+      <input type="text" id="recorrenteDescricao" maxlength="120" placeholder="Ex.: assinatura de streaming" class="w-full border rounded-lg px-3 py-2.5" />
+    </div>
+    <div>
+      <label class="text-xs text-secondary mb-1 block">Valor (R$)</label>
+      <input type="number" step="0.01" min="0.01" id="recorrenteValor" placeholder="0,00" class="w-full border rounded-lg px-3 py-2.5" />
+    </div>
+    <div>
+      <label class="text-xs text-secondary mb-1 block">Quem paga</label>
+      <div id="recorrentePessoaChips" class="flex gap-2 flex-wrap"></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="text-xs text-secondary mb-1 block">Categoria</label><select id="recorrenteCategoria" class="w-full border rounded-lg px-3 py-2.5"></select></div>
+      <div><label class="text-xs text-secondary mb-1 block">Subcategoria</label><select id="recorrenteSubcategoria" class="w-full border rounded-lg px-3 py-2.5"></select></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Método de pagamento</label>
+        <select id="recorrenteMetodo" class="w-full border rounded-lg px-3 py-2.5">
+          <option>Pix</option><option>Débito</option><option>Crédito</option><option>Dinheiro</option><option>Boleto</option><option>Transferência bancária</option><option>Outro</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-secondary mb-1 block">Dia do vencimento</label>
+        <input type="number" min="1" max="28" id="recorrenteDia" value="5" class="w-full border rounded-lg px-3 py-2.5" />
+      </div>
+    </div>
+    <p class="text-[11px] text-muted">Escolha um dia entre 1 e 28 para funcionar em qualquer mês. O lançamento é criado automaticamente como "Pendente" nesse dia.</p>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="recorrenteAtivo" checked class="w-4 h-4" /> Ativo</label>
+    <div class="flex gap-2 pt-1">
+      <button id="recorrenteCancelar" class="flex-1 surface-2 rounded-xl py-2.5 text-sm font-semibold">Cancelar</button>
+      <button id="recorrenteSalvar" class="flex-1 brand-bg rounded-xl py-2.5 text-sm font-bold">Salvar</button>
     </div>
   </div>
 </div>
@@ -750,18 +803,18 @@ const STORAGE_KEYS = {
   PWA_BANNER_DISMISSED: 'fc_pwa_banner_dismissed'
 };
 const FETCH_TIMEOUT_MS = 25000;
+const TIPO_UNICO = 'Despesa';
 
-/* ---------------- Sistema de Temas (Fase 1) ---------------- */
 const THEME_PRESETS = [
-  { nome: 'Ciano & Azul',   primaria: '#22d3ee', secundaria: '#3b82f6' },
+  { nome: 'Ciano e azul',   primaria: '#22d3ee', secundaria: '#3b82f6' },
   { nome: 'Esmeralda',      primaria: '#34d399', secundaria: '#059669' },
   { nome: 'Ametista',       primaria: '#a78bfa', secundaria: '#7c3aed' },
-  { nome: 'Coral & Rosa',   primaria: '#fb7185', secundaria: '#ec4899' },
-  { nome: 'Laranja Solar',  primaria: '#fb923c', secundaria: '#f59e0b' },
+  { nome: 'Coral e rosa',   primaria: '#fb7185', secundaria: '#ec4899' },
+  { nome: 'Laranja solar',  primaria: '#fb923c', secundaria: '#f59e0b' },
   { nome: 'Grafite',        primaria: '#94a3b8', secundaria: '#475569' }
 ];
 const DEFAULT_THEME = {
-  appName: 'Finanças do Casal', logoEmoji: '💰', logoImage: null, mode: 'dark',
+  appName: 'Controle de Gastos', logoEmoji: '💸', logoImage: null, mode: 'dark',
   corPrimaria: THEME_PRESETS[0].primaria, corSecundaria: THEME_PRESETS[0].secundaria, fonte: 'system'
 };
 const FONT_STACKS = {
@@ -797,15 +850,14 @@ function applyLogoToEl(emojiEl, imgEl, theme) {
   else { emojiEl.textContent = theme.logoEmoji || DEFAULT_THEME.logoEmoji; emojiEl.classList.remove('hidden'); imgEl.classList.add('hidden'); }
 }
 
-/* ---------------- Personalização do Dashboard (Fase 2 Etapa 2) ---------------- */
 const DASHBOARD_WIDGETS_META = [
-  { id: 'saldosPessoa', label: 'Saldos por Pessoa', icone: '👥' },
-  { id: 'dividas', label: 'Dívidas & Parcelamentos', icone: '💳' },
-  { id: 'orcamento', label: 'Orçamento vs. Realizado', icone: '🎯' },
-  { id: 'quemPagou', label: 'Quem pagou o quê', icone: '🤝' },
-  { id: 'essencial', label: 'Essencial vs. Supérfluo', icone: '⚖️' },
-  { id: 'chartCategorias', label: 'Gráfico de Categorias', icone: '🍩' },
-  { id: 'chartEvolucao', label: 'Gráfico de Evolução Mensal', icone: '📈' }
+  { id: 'saldosPessoa', label: 'Gastos por pessoa', icone: '👥' },
+  { id: 'dividas', label: 'Compras parceladas', icone: '💳' },
+  { id: 'orcamento', label: 'Orçamento x Realizado', icone: '🎯' },
+  { id: 'quemPagou', label: 'Quem gastou o quê', icone: '🤝' },
+  { id: 'essencial', label: 'Essencial x Supérfluo', icone: '⚖️' },
+  { id: 'chartCategorias', label: 'Gráfico de categorias', icone: '🍩' },
+  { id: 'chartEvolucao', label: 'Gráfico de evolução de gastos', icone: '📈' }
 ];
 function loadDashboardWidgets() {
   const defaults = {}; DASHBOARD_WIDGETS_META.forEach(w => defaults[w.id] = true);
@@ -825,15 +877,15 @@ function aplicarVisibilidadeWidgets() {
   });
 }
 
-/* ---------------- Filtros Salvos (Fase 2 Etapa 2) ---------------- */
 function loadSavedFilters() { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_FILTERS) || '[]'); } catch (e) { return []; } }
 function saveSavedFilters(arr) { localStorage.setItem(STORAGE_KEYS.SAVED_FILTERS, JSON.stringify(arr)); }
 
 const state = {
   apiUrl: localStorage.getItem(STORAGE_KEYS.API_URL) || '',
-  pessoas: [], categorias: [], transacoes: [], lixeira: [],
+  pessoas: [], categorias: [], transacoes: [], lixeira: [], recorrentes: [],
   online: navigator.onLine, currentView: 'dashboard',
-  tx: { tipo: 'Despesa', status: 'Pago', pessoaId: null, tags: [], essencial: '' },
+  tx: { status: 'Pago', pessoaId: null, tags: [], essencial: '' },
+  rec: { pessoaId: null },
   parcelamento: { ativo: false },
   extrato: { aba: 'transacoes', pagina: 1, porPagina: 20 },
   charts: { categorias: null, evolucao: null },
@@ -849,6 +901,7 @@ const state = {
   categoriaCorSelecionada: '#64748B',
   firstLoadDone: false,
   escopoParcelaAlvo: null,
+  acaoItemAlvo: null,
   pwaDeferredPrompt: null
 };
 
@@ -857,12 +910,14 @@ const state = {
    ============================================================================ */
 function loadCache() { try { const raw = localStorage.getItem(STORAGE_KEYS.CACHE); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
 function saveCache() {
-  localStorage.setItem(STORAGE_KEYS.CACHE, JSON.stringify({ pessoas: state.pessoas, categorias: state.categorias, transacoes: state.transacoes, lixeira: state.lixeira }));
+  localStorage.setItem(STORAGE_KEYS.CACHE, JSON.stringify({ pessoas: state.pessoas, categorias: state.categorias, transacoes: state.transacoes, lixeira: state.lixeira, recorrentes: state.recorrentes }));
   localStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
 }
 function getQueue() { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.QUEUE) || '[]'); } catch (e) { return []; } }
 function saveQueue(q) { localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(q)); }
 function enqueueAction(action, payload) { const q = getQueue(); q.push({ action, payload, ts: Date.now() }); saveQueue(q); refreshFilaPendenteInfo(); }
+
+function apenasGastos(lista) { return (lista || []).filter(t => t.Tipo === TIPO_UNICO || !t.Tipo); }
 
 /* ============================================================================
    3. CAMADA DE API
@@ -878,7 +933,7 @@ async function apiGet(action, extraParams) {
   let resp;
   try { resp = await fetchComTimeout(state.apiUrl + '?' + params.toString(), { method: 'GET', redirect: 'follow' }); }
   catch (err) {
-    if (err.name === 'AbortError') throw new Error('Tempo esgotado aguardando resposta do servidor (>' + (FETCH_TIMEOUT_MS/1000) + 's).');
+    if (err.name === 'AbortError') throw new Error('Tempo esgotado aguardando resposta do servidor (mais de ' + (FETCH_TIMEOUT_MS/1000) + ' segundos).');
     throw new Error('Falha de rede ao contatar o servidor (Failed to fetch).');
   }
   const text = await resp.text();
@@ -907,7 +962,7 @@ async function apiPost(action, payload) {
 async function writeAction(action, payload, optimisticFn) {
   try { const data = await apiPost(action, payload); return { ok: true, data }; }
   catch (err) {
-    console.warn('Falha ao sincronizar imediatamente, enfileirando ação:', action, err.message);
+    console.warn('Falha ao sincronizar imediatamente; enfileirando ação:', action, err.message);
     enqueueAction(action, payload);
     if (optimisticFn) optimisticFn();
     saveCache();
@@ -953,6 +1008,23 @@ function addMonthsSafe(isoDate, n) {
   const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
   const day = Math.min(d, lastDay);
   return targetYear + '-' + String(targetMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+}
+function adicionarDias(isoDate, n) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+function rotuloDia(dataISO) {
+  if (!dataISO) return 'Sem data';
+  if (dataISO === hojeISO()) return 'Hoje';
+  if (dataISO === adicionarDias(hojeISO(), -1)) return 'Ontem';
+  return formatDataBR(dataISO);
+}
+function formatHora(dataCriacaoIso) {
+  if (!dataCriacaoIso) return '';
+  const match = String(dataCriacaoIso).match(/T(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : '';
 }
 function showLoading(show, label) { document.getElementById('loadingOverlay').classList.toggle('hidden', !show); document.getElementById('loadingLabel').textContent = label || 'Carregando…'; }
 function showToast(mensagem, tipo) {
@@ -1011,10 +1083,11 @@ function badgeEssencialHtml(t) {
   if (t.Essencial === 'Supérfluo') return '<span class="badge-superfluo">Supérfluo</span>';
   return '';
 }
+function badgeRecorrenteHtml(t) { return t.RecorrenteId ? '<span class="badge-recorrente">🔁 Recorrente</span>' : ''; }
 function getTags(t) { return (t.Tags || '').split(',').map(s => s.trim()).filter(Boolean); }
 function todasTagsUnicas() {
   const set = new Set();
-  state.transacoes.forEach(t => getTags(t).forEach(tag => set.add(tag)));
+  apenasGastos(state.transacoes).forEach(t => getTags(t).forEach(tag => set.add(tag)));
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
@@ -1060,6 +1133,7 @@ async function carregarDadosIniciais(silencioso) {
     state.categorias = data.categorias || [];
     state.transacoes = data.transacoes || [];
     state.lixeira = data.lixeira || [];
+    state.recorrentes = data.recorrentes || [];
     saveCache();
     setConnStatus(true);
   } catch (err) {
@@ -1098,9 +1172,6 @@ function atualizarTudo() {
 window.addEventListener('online', () => { setConnStatus(true); sincronizarAgora(true); });
 window.addEventListener('offline', () => setConnStatus(false));
 
-/* ============================================================================
-   6B. SINCRONIZAÇÃO AUTOMÁTICA MULTI-DISPOSITIVO
-   ============================================================================ */
 async function sincronizarAgora(silencioso) {
   if (state.autoSync.syncing) return;
   state.autoSync.syncing = true;
@@ -1132,7 +1203,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('focus', () => { if (state.apiUrl) sincronizarAgora(true); });
 
 /* ============================================================================
-   7. DASHBOARD
+   7. PAINEL INICIAL
    ============================================================================ */
 document.getElementById('dashPeriodo').addEventListener('change', (e) => {
   document.getElementById('dashPersonalizado').classList.toggle('hidden', e.target.value !== 'personalizado');
@@ -1153,43 +1224,40 @@ function getPeriodoAtivo(prefixo) {
   }
   return { ini: null, fim: null };
 }
-function transacoesNoPeriodo(ini, fim) { return state.transacoes.filter(t => (!ini || !fim) ? true : (t.Data >= ini && t.Data <= fim)); }
+function gastosNoPeriodo(ini, fim) {
+  return apenasGastos(state.transacoes).filter(t => (!ini || !fim) ? true : (t.Data >= ini && t.Data <= fim));
+}
 function corDaCategoria(nomeCategoria) { const found = state.categorias.find(c => c.Categoria === nomeCategoria && c.Cor); return found ? found.Cor : null; }
 
 function renderDashboard() {
   aplicarVisibilidadeWidgets();
   const { ini, fim } = getPeriodoAtivo('dash');
-  const txs = transacoesNoPeriodo(ini, fim);
-  const totalReceitas = txs.filter(t => t.Tipo === 'Receita').reduce((s, t) => s + Number(t.Valor), 0);
-  const totalDespesas = txs.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
-  const saldo = totalReceitas - totalDespesas;
+  const txs = gastosNoPeriodo(ini, fim);
+  const totalGastos = txs.reduce((s, t) => s + Number(t.Valor), 0);
 
-  document.getElementById('saldoGeral').textContent = formatBRL(saldo);
-  document.getElementById('saldoGeral').style.color = saldo >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
-  document.getElementById('totalReceitas').textContent = formatBRL(totalReceitas);
-  document.getElementById('totalDespesas').textContent = formatBRL(totalDespesas);
+  document.getElementById('totalGastosPeriodo').textContent = formatBRL(totalGastos);
+  document.getElementById('totalGastosContagem').textContent = txs.length
+    ? `${txs.length} ${txs.length === 1 ? 'gasto registrado' : 'gastos registrados'} neste período`
+    : 'Nenhum gasto registrado neste período.';
 
   const pessoasAtivas = state.pessoas.filter(p => p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true');
   if (state.dashboardWidgets.saldosPessoa) {
     document.getElementById('saldosPorPessoa').innerHTML = pessoasAtivas.length ? pessoasAtivas.map(p => {
-      const txsP = txs.filter(t => t.PessoaId === p.ID);
-      const rec = txsP.filter(t => t.Tipo === 'Receita').reduce((s, t) => s + Number(t.Valor), 0);
-      const desp = txsP.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
-      const saldoP = rec - desp;
+      const gastoP = txs.filter(t => t.PessoaId === p.ID).reduce((s, t) => s + Number(t.Valor), 0);
       return `<div class="card rounded-2xl p-3">
         <div class="flex items-center gap-2 mb-1">
           <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:${p.Cor}20; color:${p.Cor}">${p.Iniciais || '?'}</span>
           <span class="text-xs text-secondary truncate">${escapeHtml(p.Nome)}</span>
         </div>
-        <p class="text-lg font-bold" style="color:${saldoP >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${formatBRL(saldoP)}</p>
+        <p class="text-lg font-bold">${formatBRL(gastoP)}</p>
       </div>`;
-    }).join('') : `<div class="col-span-2 empty-state"><div class="empty-icon">👥</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Cadastre em Configurações para começar a ver os saldos individuais aqui.</p></div>`;
+    }).join('') : `<div class="col-span-2 empty-state"><div class="empty-icon">👥</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Cadastre em Configurações para começar a ver os gastos individuais aqui.</p></div>`;
   }
 
   if (state.dashboardWidgets.quemPagou) {
-    const totalGastoTodos = txs.filter(t => t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0) || 1;
+    const totalGastoTodos = totalGastos || 1;
     document.getElementById('quemPagouQue').innerHTML = pessoasAtivas.length ? pessoasAtivas.map(p => {
-      const gasto = txs.filter(t => t.PessoaId === p.ID && t.Tipo === 'Despesa').reduce((s, t) => s + Number(t.Valor), 0);
+      const gasto = txs.filter(t => t.PessoaId === p.ID).reduce((s, t) => s + Number(t.Valor), 0);
       const pct = Math.round((gasto / totalGastoTodos) * 100);
       return `<div>
         <div class="flex justify-between text-xs mb-1"><span>${escapeHtml(p.Nome)}</span><span class="font-semibold">${formatBRL(gasto)} <span class="text-muted">(${pct}%)</span></span></div>
@@ -1205,10 +1273,9 @@ function renderDashboard() {
   if (state.dashboardWidgets.chartEvolucao) renderChartEvolucao();
 }
 
-/* ---------------- Painel de Dívidas & Parcelamentos ---------------- */
 function renderPainelDividas() {
   const grupos = {};
-  state.transacoes.forEach(t => {
+  apenasGastos(state.transacoes).forEach(t => {
     if (!t.GrupoParcelamentoId || !t.TotalParcelas || Number(t.TotalParcelas) <= 1) return;
     if (!grupos[t.GrupoParcelamentoId]) grupos[t.GrupoParcelamentoId] = [];
     grupos[t.GrupoParcelamentoId].push(t);
@@ -1216,8 +1283,7 @@ function renderPainelDividas() {
   const listaEl = document.getElementById('listaDividas');
   const vazioEl = document.getElementById('dividasVazio');
   const resumoEl = document.getElementById('compromissoMesResumo');
-  const idsGrupos = Object.keys(grupos);
-  const gruposAtivos = idsGrupos.map(id => {
+  const gruposAtivos = Object.keys(grupos).map(id => {
     const itens = grupos[id].slice().sort((a, b) => Number(a.NumeroParcela) - Number(b.NumeroParcela));
     const parcelasNormais = itens.filter(i => Number(i.NumeroParcela) >= 1);
     const pendentes = parcelasNormais.filter(i => i.Status === 'Pendente');
@@ -1267,11 +1333,10 @@ function renderPainelDividas() {
       });
     });
     const partes = Object.keys(compromissoMes).map(nome => `${escapeHtml(nome)}: ${formatBRL(compromissoMes[nome])}`);
-    resumoEl.textContent = compromissoTotal > 0 ? `Compromisso este mês: ${formatBRL(compromissoTotal)}${partes.length ? ' (' + partes.join(' · ') + ')' : ''}` : 'Nenhuma parcela vencendo neste mês.';
+    resumoEl.textContent = compromissoTotal > 0 ? `Compromisso deste mês: ${formatBRL(compromissoTotal)}${partes.length ? ' (' + partes.join(' · ') + ')' : ''}` : 'Nenhuma parcela vencendo neste mês.';
   }
 }
 
-/* ---------------- Painel de Orçamento vs. Realizado ---------------- */
 function renderPainelOrcamento() {
   const listaEl = document.getElementById('listaOrcamento');
   const vazioEl = document.getElementById('orcamentoVazio');
@@ -1279,8 +1344,9 @@ function renderPainelOrcamento() {
   const categoriasComOrcamento = state.categorias.filter(c => Number(c.OrcamentoMensal) > 0);
   if (!categoriasComOrcamento.length) { listaEl.innerHTML = ''; vazioEl.classList.remove('hidden'); return; }
   vazioEl.classList.add('hidden');
+  const gastosMes = apenasGastos(state.transacoes).filter(t => t.Data >= inicioMes && t.Data <= fimMes);
   const itens = categoriasComOrcamento.map(c => {
-    const gasto = state.transacoes.filter(t => t.Tipo === 'Despesa' && t.Categoria === c.Categoria && t.Data >= inicioMes && t.Data <= fimMes).reduce((s, t) => s + Number(t.Valor), 0);
+    const gasto = gastosMes.filter(t => t.Categoria === c.Categoria).reduce((s, t) => s + Number(t.Valor), 0);
     const orcamento = Number(c.OrcamentoMensal);
     const pct = orcamento > 0 ? Math.round((gasto / orcamento) * 100) : 0;
     return { categoria: c, gasto, orcamento, pct };
@@ -1293,19 +1359,17 @@ function renderPainelOrcamento() {
         <span class="font-semibold" style="color:${cor}">${formatBRL(it.gasto)} <span class="text-muted font-normal">/ ${formatBRL(it.orcamento)}</span></span>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${Math.min(it.pct, 100)}%; background:${cor}"></div></div>
-      ${it.pct > 100 ? `<p class="text-[11px] mt-1" style="color:var(--color-danger)">⚠️ ${it.pct}% do orçamento — excedido em ${formatBRL(it.gasto - it.orcamento)}</p>` : `<p class="text-[11px] text-muted mt-1">${it.pct}% utilizado</p>`}
+      ${it.pct > 100 ? `<p class="text-[11px] mt-1" style="color:var(--color-danger)">⚠️ ${it.pct}% do orçamento, excedido em ${formatBRL(it.gasto - it.orcamento)}</p>` : `<p class="text-[11px] text-muted mt-1">${it.pct}% utilizado</p>`}
     </div>`;
   }).join('');
 }
 
-/* ---------------- Painel Essencial vs. Supérfluo ---------------- */
 function renderPainelEssencial(txs) {
   const el = document.getElementById('essencialConteudo');
   const vazioEl = document.getElementById('essencialVazio');
-  const despesas = txs.filter(t => t.Tipo === 'Despesa');
-  const essencial = despesas.filter(t => t.Essencial === 'Essencial').reduce((s, t) => s + Number(t.Valor), 0);
-  const superfluo = despesas.filter(t => t.Essencial === 'Supérfluo').reduce((s, t) => s + Number(t.Valor), 0);
-  const naoClassificado = despesas.filter(t => !t.Essencial).reduce((s, t) => s + Number(t.Valor), 0);
+  const essencial = txs.filter(t => t.Essencial === 'Essencial').reduce((s, t) => s + Number(t.Valor), 0);
+  const superfluo = txs.filter(t => t.Essencial === 'Supérfluo').reduce((s, t) => s + Number(t.Valor), 0);
+  const naoClassificado = txs.filter(t => !t.Essencial).reduce((s, t) => s + Number(t.Valor), 0);
   const total = essencial + superfluo + naoClassificado;
   if (total <= 0) { el.innerHTML = ''; vazioEl.classList.remove('hidden'); return; }
   vazioEl.classList.add('hidden');
@@ -1326,9 +1390,8 @@ function renderPainelEssencial(txs) {
 }
 
 function renderChartCategorias(txs) {
-  const despesas = txs.filter(t => t.Tipo === 'Despesa');
   const porCategoria = {};
-  despesas.forEach(t => { const key = t.Categoria || 'Sem categoria'; porCategoria[key] = (porCategoria[key] || 0) + Number(t.Valor); });
+  txs.forEach(t => { const key = t.Categoria || 'Sem categoria'; porCategoria[key] = (porCategoria[key] || 0) + Number(t.Valor); });
   const labels = Object.keys(porCategoria);
   const valores = Object.values(porCategoria);
   const canvas = document.getElementById('chartCategorias');
@@ -1354,32 +1417,25 @@ function renderChartCategorias(txs) {
 function renderChartEvolucao() {
   const meses = [];
   for (let i = 5; i >= 0; i--) meses.push({ ini: primeiroDiaMes(-i), fim: ultimoDiaMes(-i), label: nomeMes(-i) });
-  const receitas = meses.map(m => state.transacoes.filter(t => t.Tipo === 'Receita' && t.Data >= m.ini && t.Data <= m.fim).reduce((s, t) => s + Number(t.Valor), 0));
-  const despesas = meses.map(m => state.transacoes.filter(t => t.Tipo === 'Despesa' && t.Data >= m.ini && t.Data <= m.fim).reduce((s, t) => s + Number(t.Valor), 0));
+  const gastos = meses.map(m => apenasGastos(state.transacoes).filter(t => t.Data >= m.ini && t.Data <= m.fim).reduce((s, t) => s + Number(t.Valor), 0));
   const canvas = document.getElementById('chartEvolucao');
   if (state.charts.evolucao) state.charts.evolucao.destroy();
   const gridColor = resolvedMode(state.theme) === 'light' ? '#e2e8f0' : '#1e293b';
   const tickColor = resolvedMode(state.theme) === 'light' ? '#475569' : '#94a3b8';
-  const legendColor = resolvedMode(state.theme) === 'light' ? '#334155' : '#cbd5e1';
+  const corPrimariaRgb = getComputedStyle(document.documentElement).getPropertyValue('--color-primary-rgb') || '34,211,238';
   state.charts.evolucao = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: { labels: meses.map(m => m.label.split(' de ')[0].slice(0, 3).toUpperCase()),
-      datasets: [{ label: 'Receitas', data: receitas, backgroundColor: '#34d399', borderRadius: 4 }, { label: 'Despesas', data: despesas, backgroundColor: '#f87171', borderRadius: 4 }] },
+      datasets: [{ label: 'Gastos', data: gastos, backgroundColor: `rgba(${corPrimariaRgb}, 0.85)`, borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false,
       scales: { x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: tickColor, font: { size: 10 }, callback: (v) => 'R$' + v }, grid: { color: gridColor } } },
-      plugins: { legend: { position: 'bottom', labels: { color: legendColor, boxWidth: 12, font: { size: 11 } } } } }
+      plugins: { legend: { display: false } } }
   });
 }
 
 /* ============================================================================
-   8. FORMULÁRIO DE TRANSAÇÃO
+   8. FORMULÁRIO DE GASTO
    ============================================================================ */
-document.querySelectorAll('.seg-tipo').forEach(btn => btn.addEventListener('click', () => {
-  state.tx.tipo = btn.dataset.tipo;
-  document.querySelectorAll('.seg-tipo').forEach(b => b.classList.toggle('active-seg', b === btn));
-  popularSelectCategorias();
-  atualizarVisibilidadeParcelamentoToggle();
-}));
 document.querySelectorAll('.seg-status').forEach(btn => btn.addEventListener('click', () => {
   state.tx.status = btn.dataset.status;
   document.querySelectorAll('.seg-status').forEach(b => b.classList.toggle('active-seg', b === btn));
@@ -1392,7 +1448,7 @@ document.getElementById('txCategoria').addEventListener('change', popularSelectS
 
 function popularSelectCategorias() {
   const sel = document.getElementById('txCategoria');
-  const categoriasFiltradas = state.categorias.filter(c => c.Tipo === state.tx.tipo && (c.Ativo === true || c.Ativo === 'TRUE' || c.Ativo === 'true'));
+  const categoriasFiltradas = state.categorias.filter(c => (c.Ativo === true || c.Ativo === 'TRUE' || c.Ativo === 'true'));
   const nomesUnicos = [...new Set(categoriasFiltradas.map(c => c.Categoria))];
   sel.innerHTML = nomesUnicos.map(nome => {
     const item = categoriasFiltradas.find(c => c.Categoria === nome);
@@ -1404,7 +1460,7 @@ function popularSelectCategorias() {
 function popularSelectSubcategorias() {
   const categoriaSelecionada = document.getElementById('txCategoria').value;
   const sel = document.getElementById('txSubcategoria');
-  const subs = state.categorias.filter(c => c.Tipo === state.tx.tipo && c.Categoria === categoriaSelecionada).map(c => c.Subcategoria).filter(Boolean);
+  const subs = state.categorias.filter(c => c.Categoria === categoriaSelecionada).map(c => c.Subcategoria).filter(Boolean);
   sel.innerHTML = subs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('') || '<option value="">—</option>';
 }
 function popularChipsPessoas() {
@@ -1424,7 +1480,6 @@ function popularChipsPessoas() {
   }));
 }
 
-/* ---------- Tags: chip input ---------- */
 function renderTagsChips() {
   const wrap = document.getElementById('txTagsChips');
   wrap.innerHTML = state.tx.tags.map((tag, idx) => `<span class="tag-chip">#${escapeHtml(tag)}<button type="button" data-idx="${idx}">×</button></span>`).join('');
@@ -1442,12 +1497,10 @@ document.getElementById('txTagInput').addEventListener('keydown', (e) => {
   }
 });
 
-/* ---------- Lógica de Parcelamento ---------- */
 function atualizarVisibilidadeParcelamentoToggle() {
   const editando = !!document.getElementById('txId').value;
-  const disponivel = state.tx.tipo === 'Despesa' && !editando;
-  document.getElementById('parcelamentoToggleWrap').classList.toggle('hidden', !disponivel);
-  if (!disponivel && state.parcelamento.ativo) desativarParcelamento();
+  document.getElementById('parcelamentoToggleWrap').classList.toggle('hidden', editando);
+  if (editando && state.parcelamento.ativo) desativarParcelamento();
 }
 const toggleParcelamentoEl = document.getElementById('toggleParcelamento');
 toggleParcelamentoEl.addEventListener('click', () => { if (state.parcelamento.ativo) desativarParcelamento(); else ativarParcelamento(); });
@@ -1486,8 +1539,7 @@ function calcularParcelas() {
   if (valorEntrada > 0) parcelas.push({ numero: 0, valor: valorEntrada, data: document.getElementById('txData').value || hojeISO(), isEntrada: true });
   for (let i = 0; i < numeroParcelas; i++) {
     const valor = (i === numeroParcelas - 1) ? valorUltima : valorBase;
-    const data = addMonthsSafe(dataPrimeira, i);
-    parcelas.push({ numero: i + 1, valor, data, isEntrada: false });
+    parcelas.push({ numero: i + 1, valor, data: addMonthsSafe(dataPrimeira, i), isEntrada: false });
   }
   return { parcelas, numeroParcelas, valorTotal };
 }
@@ -1502,41 +1554,51 @@ function atualizarPreviewParcelas() {
   } catch (err) { wrap.innerHTML = `<p class="text-xs" style="color:var(--color-danger)">${escapeHtml(err.message)}</p>`; }
 }
 
-function abrirFormTransacao(transacaoExistente) {
-  const form = document.getElementById('formTransacao');
-  form.reset();
+function abrirFormTransacao(transacaoExistente, opts) {
+  opts = opts || {};
+  const duplicar = !!opts.duplicar;
+  document.getElementById('formTransacao').reset();
   desativarParcelamento();
   document.getElementById('bannerParcelaInfo').classList.add('hidden');
   popularChipsPessoas();
   state.tx.tags = transacaoExistente ? getTags(transacaoExistente) : [];
   renderTagsChips();
   state.tx.essencial = transacaoExistente ? (transacaoExistente.Essencial || '') : '';
-  if (transacaoExistente) {
-    document.getElementById('tituloFormTransacao').textContent = 'Editar Transação';
-    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar Alterações';
+
+  if (transacaoExistente && !duplicar) {
+    document.getElementById('tituloFormTransacao').textContent = 'Editar gasto';
+    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar alterações';
     document.getElementById('txId').value = transacaoExistente.ID;
     document.getElementById('txValor').value = transacaoExistente.Valor;
     document.getElementById('txData').value = transacaoExistente.Data;
     document.getElementById('txDescricao').value = transacaoExistente.Descricao || '';
     document.getElementById('txMetodo').value = transacaoExistente.MetodoPagamento || 'Pix';
-    state.tx.tipo = transacaoExistente.Tipo;
     state.tx.status = transacaoExistente.Status || 'Pago';
     state.tx.pessoaId = transacaoExistente.PessoaId;
     if (transacaoExistente.TotalParcelas && Number(transacaoExistente.TotalParcelas) > 1) {
       const banner = document.getElementById('bannerParcelaInfo');
       const numero = Number(transacaoExistente.NumeroParcela);
       const rotulo = numero === 0 ? 'Entrada' : `Parcela ${numero}/${transacaoExistente.TotalParcelas}`;
-      banner.textContent = `ℹ️ Esta transação é "${rotulo}" de uma compra parcelada. Para excluir mais de uma parcela de uma vez, use o botão de excluir no Extrato.`;
+      banner.textContent = `ℹ️ Este gasto é "${rotulo}" de uma compra parcelada. Para excluir mais de uma parcela de uma vez, use o menu de ações no Extrato.`;
       banner.classList.remove('hidden');
     }
+  } else if (transacaoExistente && duplicar) {
+    document.getElementById('tituloFormTransacao').textContent = 'Duplicar gasto';
+    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar gasto';
+    document.getElementById('txId').value = '';
+    document.getElementById('txValor').value = transacaoExistente.Valor;
+    document.getElementById('txData').value = hojeISO();
+    document.getElementById('txDescricao').value = transacaoExistente.Descricao || '';
+    document.getElementById('txMetodo').value = transacaoExistente.MetodoPagamento || 'Pix';
+    state.tx.status = 'Pago';
+    state.tx.pessoaId = transacaoExistente.PessoaId;
   } else {
-    document.getElementById('tituloFormTransacao').textContent = 'Nova Transação';
-    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar Transação';
+    document.getElementById('tituloFormTransacao').textContent = 'Novo gasto';
+    document.getElementById('btnSalvarTxLabel').textContent = 'Salvar gasto';
     document.getElementById('txId').value = '';
     document.getElementById('txData').value = hojeISO();
-    state.tx.tipo = 'Despesa'; state.tx.status = 'Pago'; state.tx.pessoaId = null;
+    state.tx.status = 'Pago'; state.tx.pessoaId = null;
   }
-  document.querySelectorAll('.seg-tipo').forEach(b => b.classList.toggle('active-seg', b.dataset.tipo === state.tx.tipo));
   document.querySelectorAll('.seg-status').forEach(b => b.classList.toggle('active-seg', b.dataset.status === state.tx.status));
   document.querySelectorAll('.seg-essencial').forEach(b => b.classList.toggle('active-seg', b.dataset.essencial === state.tx.essencial));
   popularSelectCategorias();
@@ -1554,18 +1616,17 @@ function abrirFormTransacao(transacaoExistente) {
 
 document.getElementById('formTransacao').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!state.tx.pessoaId) { showToast('Selecione quem pagou/recebeu.', 'error'); return; }
+  if (!state.tx.pessoaId) { showToast('Selecione quem gastou.', 'error'); return; }
   const pessoa = state.pessoas.find(p => p.ID === state.tx.pessoaId) || {};
   const id = document.getElementById('txId').value;
   const categoriaSelecionada = document.getElementById('txCategoria').value;
   const subcategoriaSelecionada = document.getElementById('txSubcategoria').value;
   const catObj = state.categorias.find(c => c.Categoria === categoriaSelecionada && c.Subcategoria === subcategoriaSelecionada);
-  const tagsStr = state.tx.tags.join(',');
   const camposComuns = {
-    Tipo: state.tx.tipo, PessoaId: state.tx.pessoaId, PessoaNome: pessoa.Nome || '',
+    Tipo: TIPO_UNICO, PessoaId: state.tx.pessoaId, PessoaNome: pessoa.Nome || '',
     Categoria: categoriaSelecionada, Subcategoria: subcategoriaSelecionada, CategoriaId: catObj ? catObj.ID : '',
     Descricao: document.getElementById('txDescricao').value, MetodoPagamento: document.getElementById('txMetodo').value,
-    Tags: tagsStr, Essencial: state.tx.essencial
+    Tags: state.tx.tags.join(','), Essencial: state.tx.essencial
   };
   showLoading(true);
   try {
@@ -1582,13 +1643,13 @@ document.getElementById('formTransacao').addEventListener('submit', async (e) =>
       const payload = { ID: id, Data: document.getElementById('txData').value, Valor: parseFloat(document.getElementById('txValor').value), Status: state.tx.status, ...camposComuns };
       const resultado = await writeAction('updateTransacao', payload, () => { const idx = state.transacoes.findIndex(t => t.ID === id); if (idx > -1) state.transacoes[idx] = { ...state.transacoes[idx], ...payload }; });
       if (resultado.ok) { const idx = state.transacoes.findIndex(t => t.ID === id); if (idx > -1) state.transacoes[idx] = resultado.data; saveCache(); }
-      showToast('Transação atualizada com sucesso!', 'success');
+      showToast('Gasto atualizado com sucesso!', 'success');
     } else {
       const payload = { Data: document.getElementById('txData').value, Valor: parseFloat(document.getElementById('txValor').value), Status: state.tx.status, ...camposComuns };
       const tempId = 'temp_' + Date.now();
-      const resultado = await writeAction('addTransacao', payload, () => { state.transacoes.push({ ...payload, ID: tempId, GrupoParcelamentoId: '', NumeroParcela: 1, TotalParcelas: 1, DataCriacao: new Date().toISOString(), DataEdicao: new Date().toISOString() }); });
+      const resultado = await writeAction('addTransacao', payload, () => { state.transacoes.push({ ...payload, ID: tempId, GrupoParcelamentoId: '', NumeroParcela: 1, TotalParcelas: 1, RecorrenteId: '', DataCriacao: new Date().toISOString(), DataEdicao: new Date().toISOString() }); });
       if (resultado.ok) { state.transacoes.push(resultado.data); saveCache(); }
-      showToast('Transação adicionada com sucesso!', 'success');
+      showToast('Gasto adicionado com sucesso!', 'success');
     }
     irPara('dashboard');
   } catch (err) { showToast('Erro ao salvar: ' + err.message, 'error'); }
@@ -1596,7 +1657,7 @@ document.getElementById('formTransacao').addEventListener('submit', async (e) =>
 });
 
 /* ============================================================================
-   9. EXTRATO / HISTÓRICO (com filtros avançados e filtros salvos)
+   9. EXTRATO — agrupado por dia, total do filtro, busca ampliada e ações
    ============================================================================ */
 document.getElementById('tabTransacoes').addEventListener('click', () => { state.extrato.aba = 'transacoes'; state.extrato.pagina = 1; renderExtrato(); });
 document.getElementById('tabLixeira').addEventListener('click', () => { state.extrato.aba = 'lixeira'; state.extrato.pagina = 1; renderExtrato(); });
@@ -1690,13 +1751,18 @@ document.getElementById('salvarFiltroConfirmar').addEventListener('click', () =>
 function ordenarTransacoes(lista, ordenacao) {
   const arr = lista.slice();
   switch (ordenacao) {
-    case 'data_asc': arr.sort((a, b) => (a.Data || '').localeCompare(b.Data || '')); break;
+    case 'data_asc': arr.sort((a, b) => (a.Data || '').localeCompare(b.Data || '') || (a.DataCriacao || '').localeCompare(b.DataCriacao || '')); break;
     case 'valor_desc': arr.sort((a, b) => Number(b.Valor) - Number(a.Valor)); break;
     case 'valor_asc': arr.sort((a, b) => Number(a.Valor) - Number(b.Valor)); break;
     case 'categoria_asc': arr.sort((a, b) => (a.Categoria || '').localeCompare(b.Categoria || '')); break;
-    default: arr.sort((a, b) => (b.Data || '').localeCompare(a.Data || ''));
+    default: arr.sort((a, b) => (b.Data || '').localeCompare(a.Data || '') || (b.DataCriacao || '').localeCompare(a.DataCriacao || ''));
   }
   return arr;
+}
+
+function transacaoContemTermo(t, termo) {
+  const campos = [t.Descricao, t.Categoria, t.Subcategoria, t.Tags || ''].join(' ').toLowerCase();
+  return campos.includes(termo);
 }
 
 function renderExtrato() {
@@ -1706,12 +1772,12 @@ function renderExtrato() {
   document.getElementById('tabLixeira').classList.toggle('active-seg', state.extrato.aba === 'lixeira');
   document.getElementById('filtrosExtrato').classList.toggle('hidden', state.extrato.aba === 'lixeira');
   const origem = state.extrato.aba === 'transacoes' ? state.transacoes : state.lixeira;
-  let filtradas = [...origem];
+  let filtradas = apenasGastos(origem);
   let ordenacao = 'data_desc';
   if (state.extrato.aba === 'transacoes') {
     const f = coletarFiltrosAtuais();
     ordenacao = f.ordenacao;
-    if (f.busca) filtradas = filtradas.filter(t => (t.Descricao || '').toLowerCase().includes(f.busca.trim().toLowerCase()));
+    if (f.busca) { const termo = f.busca.trim().toLowerCase(); filtradas = filtradas.filter(t => transacaoContemTermo(t, termo)); }
     if (f.pessoa !== 'todas') filtradas = filtradas.filter(t => t.PessoaId === f.pessoa);
     if (f.categoria !== 'todas') filtradas = filtradas.filter(t => t.Categoria === f.categoria);
     if (f.periodo !== 'todos') { const { ini, fim } = getPeriodoAtivo('filtro'); if (ini && fim) filtradas = filtradas.filter(t => t.Data >= ini && t.Data <= fim); }
@@ -1725,40 +1791,117 @@ function renderExtrato() {
   }
   filtradas = ordenarTransacoes(filtradas, ordenacao);
   const totalItens = filtradas.length;
+  const somaTotal = filtradas.reduce((s, t) => s + Number(t.Valor), 0);
   const limite = state.extrato.pagina * state.extrato.porPagina;
   const paginadas = filtradas.slice(0, limite);
-  document.getElementById('extratoResumo').textContent = totalItens ? `${totalItens} ${totalItens === 1 ? 'registro encontrado' : 'registros encontrados'}` : '';
+  document.getElementById('extratoResumo').textContent = totalItens
+    ? `${totalItens} ${totalItens === 1 ? 'registro encontrado' : 'registros encontrados'} · ${formatBRL(somaTotal)}`
+    : '';
   document.getElementById('extratoVazio').classList.toggle('hidden', totalItens > 0);
   document.getElementById('btnCarregarMais').classList.toggle('hidden', limite >= totalItens);
   const lista = document.getElementById('listaExtrato');
-  lista.innerHTML = paginadas.map(t => renderItemExtrato(t, state.extrato.aba === 'lixeira')).join('');
-  lista.querySelectorAll('.btn-editar-tx').forEach(btn => btn.addEventListener('click', () => { const tx = state.transacoes.find(t => t.ID === btn.dataset.id); if (tx) abrirFormTransacao(tx); }));
-  lista.querySelectorAll('.btn-excluir-tx').forEach(btn => btn.addEventListener('click', () => solicitarExclusaoTransacao(btn.dataset.id)));
+  lista.innerHTML = renderListaExtrato(paginadas, ordenacao, state.extrato.aba === 'lixeira');
+  lista.querySelectorAll('.btn-acoes-tx').forEach(btn => btn.addEventListener('click', () => abrirAcoesItem(btn.dataset.id)));
   lista.querySelectorAll('.btn-restaurar-tx').forEach(btn => btn.addEventListener('click', () => restaurarTransacao(btn.dataset.id)));
 }
 
-function renderItemExtrato(t, isLixeira) {
+function renderListaExtrato(itens, ordenacao, isLixeira) {
+  const agruparPorDia = !isLixeira && (ordenacao === 'data_desc' || ordenacao === 'data_asc');
+  if (!agruparPorDia) return itens.map(t => renderItemExtrato(t, isLixeira, true)).join('');
+  const grupos = [];
+  let atual = null;
+  itens.forEach(t => {
+    const chave = t.Data || '';
+    if (!atual || atual.chave !== chave) { atual = { chave, itens: [] }; grupos.push(atual); }
+    atual.itens.push(t);
+  });
+  return grupos.map(g => {
+    const subtotal = g.itens.reduce((s, t) => s + Number(t.Valor), 0);
+    return `<div class="day-group">
+      <div class="day-group-header"><span class="day-label">${escapeHtml(rotuloDia(g.chave))}</span><span class="day-subtotal">${formatBRL(subtotal)}</span></div>
+      <div class="space-y-2">${g.itens.map(t => renderItemExtrato(t, isLixeira, false)).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderItemExtrato(t, isLixeira, mostrarData) {
   const pessoa = state.pessoas.find(p => p.ID === t.PessoaId) || { Nome: t.PessoaNome, Cor: '#64748b', Iniciais: '?' };
   const catObj = state.categorias.find(c => c.Categoria === t.Categoria);
   const icone = catObj && catObj.Icone ? catObj.Icone : null;
-  const corValor = t.Tipo === 'Receita' ? 'var(--color-success)' : (t.Tipo === 'Despesa' ? 'var(--color-danger)' : 'var(--color-secondary)');
-  const sinal = t.Tipo === 'Receita' ? '+' : (t.Tipo === 'Despesa' ? '−' : '');
-  const acoes = isLixeira
-    ? `<button data-id="${t.ID}" class="btn-restaurar-tx text-xs font-semibold brand-text px-2 py-1">↺ Restaurar</button>`
-    : `<button data-id="${t.ID}" class="btn-editar-tx text-xs font-semibold text-secondary px-2 py-1">✏️</button><button data-id="${t.ID}" class="btn-excluir-tx text-xs font-semibold px-2 py-1" style="color:#f87171;">🗑️</button>`;
   const avatarConteudo = icone || (pessoa.Iniciais || '?');
   const tags = getTags(t);
   const tagsHtml = tags.length ? '<div class="flex gap-1 flex-wrap mt-1">' + tags.map(tag => `<span class="tag-pill-filter">#${escapeHtml(tag)}</span>`).join('') + '</div>' : '';
+
+  const metaPartes = [pessoa.Nome, [t.Categoria, t.Subcategoria].filter(Boolean).join(' / ')];
+  if (mostrarData) metaPartes.push(formatDataBR(t.Data));
+  const hora = formatHora(t.DataCriacao);
+  if (hora) metaPartes.push(hora);
+  const metaHtml = metaPartes.filter(Boolean).map(p => escapeHtml(p)).join(' · ');
+
+  const acoes = isLixeira
+    ? `<button data-id="${t.ID}" class="btn-restaurar-tx text-xs font-semibold brand-text px-2 py-1">↺ Restaurar</button>`
+    : `<button data-id="${t.ID}" class="btn-acoes-tx item-actions-btn" aria-label="Ações do lançamento">⋯</button>`;
+
   return `<div class="card rounded-xl p-3 flex items-start gap-3">
     <span class="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 mt-0.5" style="background:${(catObj ? catObj.Cor : pessoa.Cor)}25;color:${catObj ? catObj.Cor : pessoa.Cor}">${avatarConteudo}</span>
     <div class="flex-1 min-w-0">
-      <p class="text-sm font-medium truncate flex items-center gap-1.5 flex-wrap">${escapeHtml(t.Descricao || t.Categoria || 'Sem descrição')} ${badgeParcelaHtml(t)} ${badgeStatusHtml(t)} ${badgeEssencialHtml(t)}</p>
-      <p class="text-xs text-muted truncate">${escapeHtml(pessoa.Nome || '')} · ${escapeHtml(t.Categoria || '')}${t.Subcategoria ? ' · ' + escapeHtml(t.Subcategoria) : ''} · ${formatDataBR(t.Data)}</p>
+      <p class="text-sm font-medium truncate flex items-center gap-1.5 flex-wrap">${escapeHtml(t.Descricao || t.Categoria || 'Sem descrição')} ${badgeParcelaHtml(t)} ${badgeRecorrenteHtml(t)} ${badgeStatusHtml(t)} ${badgeEssencialHtml(t)}</p>
+      <p class="text-xs text-muted truncate">${metaHtml}</p>
       ${tagsHtml}
     </div>
-    <div class="text-right shrink-0"><p class="text-sm font-bold" style="color:${corValor}">${sinal} ${formatBRL(t.Valor)}</p><div class="flex justify-end">${acoes}</div></div>
+    <div class="text-right shrink-0 flex flex-col items-end gap-1">
+      <p class="text-sm font-bold">${formatBRL(t.Valor)}</p>
+      ${acoes}
+    </div>
   </div>`;
 }
+
+function abrirAcoesItem(id) {
+  const tx = state.transacoes.find(t => t.ID === id);
+  if (!tx) return;
+  state.acaoItemAlvo = id;
+  document.getElementById('acoesItemTitulo').textContent = tx.Descricao || tx.Categoria || 'Gasto';
+  document.getElementById('acaoMarcarPago').classList.toggle('hidden', statusExibicao(tx) === 'Pago');
+  document.getElementById('modalAcoesItem').classList.remove('hidden');
+}
+document.getElementById('acaoCancelar').addEventListener('click', () => document.getElementById('modalAcoesItem').classList.add('hidden'));
+document.getElementById('acaoMarcarPago').addEventListener('click', async () => {
+  const id = state.acaoItemAlvo;
+  document.getElementById('modalAcoesItem').classList.add('hidden');
+  if (!id) return;
+  showLoading(true);
+  try {
+    const resultado = await writeAction('updateTransacao', { ID: id, Status: 'Pago' }, () => {
+      const idx = state.transacoes.findIndex(t => t.ID === id);
+      if (idx > -1) state.transacoes[idx].Status = 'Pago';
+    });
+    if (resultado.ok) { const idx = state.transacoes.findIndex(t => t.ID === id); if (idx > -1) state.transacoes[idx] = resultado.data; saveCache(); }
+    renderExtrato();
+    if (state.currentView === 'dashboard') renderDashboard();
+    showToast('Gasto marcado como pago!', 'success');
+  } catch (err) { showToast('Erro: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+});
+document.getElementById('acaoDuplicar').addEventListener('click', () => {
+  const id = state.acaoItemAlvo;
+  document.getElementById('modalAcoesItem').classList.add('hidden');
+  if (!id) return;
+  const tx = state.transacoes.find(t => t.ID === id);
+  if (tx) abrirFormTransacao(tx, { duplicar: true });
+});
+document.getElementById('acaoEditar').addEventListener('click', () => {
+  const id = state.acaoItemAlvo;
+  document.getElementById('modalAcoesItem').classList.add('hidden');
+  if (!id) return;
+  const tx = state.transacoes.find(t => t.ID === id);
+  if (tx) abrirFormTransacao(tx);
+});
+document.getElementById('acaoExcluir').addEventListener('click', () => {
+  const id = state.acaoItemAlvo;
+  document.getElementById('modalAcoesItem').classList.add('hidden');
+  if (!id) return;
+  solicitarExclusaoTransacao(id);
+});
 
 function solicitarExclusaoTransacao(id) {
   const tx = state.transacoes.find(t => t.ID === id);
@@ -1797,7 +1940,7 @@ async function executarExclusaoComEscopo(escopo) {
   finally { showLoading(false); state.escopoParcelaAlvo = null; }
 }
 async function excluirTransacaoSimples(id) {
-  const ok = await confirmarAcao('Excluir transação?', 'Ela será movida para a lixeira e poderá ser restaurada depois.');
+  const ok = await confirmarAcao('Excluir gasto?', 'Ele será movido para a lixeira e poderá ser restaurado depois.');
   if (!ok) return;
   showLoading(true);
   try {
@@ -1807,7 +1950,7 @@ async function excluirTransacaoSimples(id) {
     });
     if (state.online) await carregarDadosIniciais(true); else saveCache();
     renderExtrato();
-    showToast('Transação movida para a lixeira.', 'success');
+    showToast('Gasto movido para a lixeira.', 'success');
   } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
   finally { showLoading(false); }
 }
@@ -1820,13 +1963,13 @@ async function restaurarTransacao(id) {
     });
     if (state.online) await carregarDadosIniciais(true); else saveCache();
     renderExtrato();
-    showToast('Transação restaurada com sucesso!', 'success');
+    showToast('Gasto restaurado com sucesso!', 'success');
   } catch (err) { showToast('Erro ao restaurar: ' + err.message, 'error'); }
   finally { showLoading(false); }
 }
 
 /* ============================================================================
-   10. APARÊNCIA + PERSONALIZAR DASHBOARD
+   10. APARÊNCIA E PERSONALIZAÇÃO DO PAINEL INICIAL
    ============================================================================ */
 function renderThemePresets() {
   const grid = document.getElementById('themePresetsGrid');
@@ -1851,7 +1994,7 @@ document.getElementById('btnEscolherEmoji').addEventListener('click', () => abri
 document.getElementById('apLogoUpload').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 900 * 1024) { showToast('Imagem muito grande (máx. ~900KB). Escolha uma imagem menor.', 'error'); return; }
+  if (file.size > 900 * 1024) { showToast('Imagem muito grande (máximo de aproximadamente 900 KB). Escolha uma imagem menor.', 'error'); return; }
   const reader = new FileReader();
   reader.onload = () => { state.theme.logoImage = reader.result; persistirTema(); document.getElementById('btnRemoverLogoImg').classList.remove('hidden'); showToast('Logo atualizado!', 'success'); };
   reader.readAsDataURL(file);
@@ -1863,7 +2006,7 @@ document.getElementById('apCorSecundaria').addEventListener('input', (e) => { st
 document.querySelectorAll('.seg-mode').forEach(btn => btn.addEventListener('click', () => { state.theme.mode = btn.dataset.mode; document.querySelectorAll('.seg-mode').forEach(b => b.classList.toggle('active-seg', b === btn)); persistirTema(); }));
 document.getElementById('apFonte').addEventListener('change', (e) => { state.theme.fonte = e.target.value; persistirTema(); });
 document.getElementById('btnResetarAparencia').addEventListener('click', async () => {
-  const ok = await confirmarAcao('Restaurar aparência padrão?', 'Nome do app, logo, cores, modo e fonte voltarão aos valores originais.');
+  const ok = await confirmarAcao('Restaurar aparência padrão?', 'O nome do aplicativo, o logotipo, as cores, o modo de exibição e a fonte voltarão aos valores originais.');
   if (!ok) return;
   state.theme = { ...DEFAULT_THEME }; persistirTema(); renderConfig();
   showToast('Aparência restaurada ao padrão.', 'success');
@@ -1911,7 +2054,7 @@ function selecionarIcone(icone) {
 document.getElementById('btnEscolherIconeCategoria').addEventListener('click', () => abrirIconPicker('categoria'));
 
 /* ============================================================================
-   11. CONFIGURAÇÕES — Conexão, Diagnóstico, Reparo, Sincronização
+   11. CONFIGURAÇÕES — conexão, diagnóstico, reparo, sincronização
    ============================================================================ */
 document.getElementById('btnTestarConexao').addEventListener('click', async () => {
   const url = document.getElementById('apiUrlInput').value.trim();
@@ -1923,7 +2066,7 @@ document.getElementById('btnTestarConexao').addEventListener('click', async () =
     const text = await resp.text();
     let json;
     try { json = JSON.parse(text); }
-    catch (e) { throw new Error('A resposta não é JSON — verifique se "Quem pode acessar" está como "Qualquer pessoa".'); }
+    catch (e) { throw new Error('A resposta não é um JSON válido. Verifique se "Quem pode acessar" está definido como "Qualquer pessoa".'); }
     if (json.success) { resultEl.innerHTML = '✅ Conexão bem-sucedida! <span class="text-muted">(teste leve — não carrega os dados completos)</span>'; resultEl.style.color = 'var(--color-success)'; }
     else throw new Error(json.error || 'Resposta inesperada da API.');
   } catch (err) { resultEl.textContent = '❌ Falha: ' + err.message; resultEl.style.color = 'var(--color-danger)'; }
@@ -1939,7 +2082,7 @@ document.getElementById('btnSalvarApiUrl').addEventListener('click', async () =>
 });
 document.getElementById('btnForcarSync').addEventListener('click', () => processarFila(false));
 document.getElementById('btnLimparCache').addEventListener('click', async () => {
-  const ok = await confirmarAcao('Limpar cache local?', 'Isso removerá os dados salvos localmente neste dispositivo (a planilha não será afetada).');
+  const ok = await confirmarAcao('Limpar cache local?', 'Isso removerá os dados salvos localmente neste dispositivo. A planilha não será afetada.');
   if (!ok) return;
   localStorage.removeItem(STORAGE_KEYS.CACHE); localStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
   showToast('Cache local limpo.', 'success');
@@ -1948,7 +2091,7 @@ document.getElementById('btnLimparCache').addEventListener('click', async () => 
 document.getElementById('btnLimparFila').addEventListener('click', async () => {
   const q = getQueue();
   if (!q.length) { showToast('A fila já está vazia.', 'info'); return; }
-  const ok = await confirmarAcao('Descartar fila pendente?', 'Existem ' + q.length + ' alteração(ões) aguardando sincronização. Elas NÃO serão enviadas à planilha.');
+  const ok = await confirmarAcao('Descartar fila pendente?', 'Existem ' + q.length + ' alteração(ões) aguardando sincronização. Elas não serão enviadas à planilha.');
   if (!ok) return;
   saveQueue([]); refreshFilaPendenteInfo();
   showToast('Fila de sincronização descartada.', 'success');
@@ -1956,10 +2099,10 @@ document.getElementById('btnLimparFila').addEventListener('click', async () => {
 document.getElementById('btnDiagnostico').addEventListener('click', async () => {
   const resultEl = document.getElementById('diagnosticoResultado');
   resultEl.classList.remove('hidden');
-  resultEl.innerHTML = '<span class="spinner-sm"></span> Consultando planilha diretamente…';
+  resultEl.innerHTML = '<span class="spinner-sm"></span> Consultando a planilha diretamente…';
   try {
     const data = await apiGet('diagnostico');
-    resultEl.innerHTML = `<p><strong>Planilha:</strong> ${escapeHtml(data.planilhaNome)}</p><p><strong>Pessoas:</strong> ${data.pessoas}</p><p><strong>Categorias:</strong> ${data.categorias}</p><p><strong>Transações:</strong> ${data.transacoes}</p><p><strong>Lixeira:</strong> ${data.lixeira}</p><p class="text-muted mt-1">Verificado em: ${new Date(data.timestamp).toLocaleString('pt-BR')}</p>`;
+    resultEl.innerHTML = `<p><strong>Planilha:</strong> ${escapeHtml(data.planilhaNome)}</p><p><strong>Pessoas:</strong> ${data.pessoas}</p><p><strong>Categorias:</strong> ${data.categorias}</p><p><strong>Gastos:</strong> ${data.transacoes}</p><p><strong>Lixeira:</strong> ${data.lixeira}</p><p><strong>Recorrentes:</strong> ${data.recorrentes}</p><p class="text-muted mt-1">Verificado em ${new Date(data.timestamp).toLocaleString('pt-BR')}</p>`;
   } catch (err) { resultEl.innerHTML = '❌ Não foi possível verificar: ' + escapeHtml(err.message); }
 });
 document.getElementById('btnRepararCategorias').addEventListener('click', async () => {
@@ -1994,9 +2137,9 @@ function renderAutoSyncUI() {
   selectSyncIntervalEl.value = String(state.autoSync.intervalMs);
   selectSyncIntervalEl.disabled = !state.autoSync.enabled;
   const statusEl = document.getElementById('autoSyncStatus');
-  if (state.autoSync.enabled && state.apiUrl) statusEl.innerHTML = '<span class="pulse-dot"></span> Ativo — verificando a cada ' + Math.round(state.autoSync.intervalMs / 1000) + 's';
+  if (state.autoSync.enabled && state.apiUrl) statusEl.innerHTML = '<span class="pulse-dot"></span> Ativo — verificando a cada ' + Math.round(state.autoSync.intervalMs / 1000) + ' segundos';
   else if (!state.apiUrl) statusEl.textContent = 'Configure a URL da API para ativar.';
-  else statusEl.textContent = 'Desativado — use o botão "Sincronizar Agora" manualmente.';
+  else statusEl.textContent = 'Desativado — use o botão "Sincronizar agora" manualmente.';
 }
 toggleAutoSyncEl.addEventListener('click', () => { state.autoSync.enabled = !state.autoSync.enabled; localStorage.setItem(STORAGE_KEYS.AUTOSYNC_ON, String(state.autoSync.enabled)); renderAutoSyncUI(); iniciarAutoSync(); });
 selectSyncIntervalEl.addEventListener('change', () => { state.autoSync.intervalMs = parseInt(selectSyncIntervalEl.value, 10); localStorage.setItem(STORAGE_KEYS.AUTOSYNC_INTERVAL, String(state.autoSync.intervalMs)); renderAutoSyncUI(); iniciarAutoSync(); });
@@ -2011,6 +2154,7 @@ function renderConfig() {
   document.querySelectorAll('.seg-mode').forEach(b => b.classList.toggle('active-seg', b.dataset.mode === state.theme.mode));
   renderThemePresets();
   renderListaWidgetsDashboard();
+  renderListaRecorrentesConfig();
   refreshFilaPendenteInfo();
   renderAutoSyncUI();
   atualizarPainelInstalacaoPWA();
@@ -2023,23 +2167,17 @@ function renderConfig() {
       <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:${p.Cor}30;color:${p.Cor}">${p.Iniciais || '?'}</span>
       <div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">${escapeHtml(p.Nome)}</p><p class="text-[11px] text-muted">${(p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true') ? 'Ativo' : 'Inativo'}</p></div>
       <button data-id="${p.ID}" class="btn-editar-pessoa text-xs font-semibold brand-text px-2 py-1">Editar</button>
-    </div>`).join('') : '<div class="empty-state"><div class="empty-icon">👤</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" para cadastrar o casal.</p></div>';
+    </div>`).join('') : '<div class="empty-state"><div class="empty-icon">👤</div><p class="empty-title">Nenhuma pessoa cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" para cadastrar quem participa dos gastos.</p></div>';
   wrapPessoas.querySelectorAll('.btn-editar-pessoa').forEach(btn => btn.addEventListener('click', () => abrirModalPessoa(state.pessoas.find(p => p.ID === btn.dataset.id))));
 
   const wrapCats = document.getElementById('listaCategoriasConfig');
-  const tipos = ['Despesa', 'Receita', 'Transferência'];
-  const temCategorias = state.categorias.length > 0;
-  wrapCats.innerHTML = temCategorias ? tipos.map(tipo => {
-    const itens = state.categorias.filter(c => c.Tipo === tipo);
-    if (!itens.length) return '';
-    return `<div><p class="text-xs font-semibold text-muted mb-1.5">${tipo}s</p><div class="space-y-1.5">
-      ${itens.map(c => `<div class="flex items-center gap-2 surface-2 rounded-lg px-3 py-2">
-        <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${(c.Cor||'#64748B')}25;">${c.Icone || '🏷️'}</span>
-        <div class="flex-1 min-w-0"><p class="text-sm truncate">${escapeHtml(c.Categoria)} <span class="text-muted">/ ${escapeHtml(c.Subcategoria || '—')}</span></p>${Number(c.OrcamentoMensal) > 0 ? `<p class="text-[10px] text-muted">Orçamento: ${formatBRL(c.OrcamentoMensal)}/mês</p>` : ''}</div>
-        <button data-id="${c.ID}" class="btn-editar-cat text-xs font-semibold brand-text px-1.5">Editar</button>
-        <button data-id="${c.ID}" class="btn-excluir-cat text-xs font-semibold px-1.5" style="color:#f87171;">Excluir</button>
-      </div>`).join('')}</div></div>`;
-  }).join('') : '<div class="empty-state"><div class="empty-icon">🏷️</div><p class="empty-title">Nenhuma categoria cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" ou use "Reparar Categorias" acima.</p></div>';
+  wrapCats.innerHTML = state.categorias.length ? state.categorias.map(c => `
+    <div class="flex items-center gap-2 surface-2 rounded-lg px-3 py-2">
+      <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${(c.Cor||'#64748B')}25;">${c.Icone || '🏷️'}</span>
+      <div class="flex-1 min-w-0"><p class="text-sm truncate">${escapeHtml(c.Categoria)} <span class="text-muted">/ ${escapeHtml(c.Subcategoria || '—')}</span></p>${Number(c.OrcamentoMensal) > 0 ? `<p class="text-[10px] text-muted">Orçamento: ${formatBRL(c.OrcamentoMensal)} por mês</p>` : ''}</div>
+      <button data-id="${c.ID}" class="btn-editar-cat text-xs font-semibold brand-text px-1.5">Editar</button>
+      <button data-id="${c.ID}" class="btn-excluir-cat text-xs font-semibold px-1.5" style="color:#f87171;">Excluir</button>
+    </div>`).join('') : '<div class="empty-state"><div class="empty-icon">🏷️</div><p class="empty-title">Nenhuma categoria cadastrada</p><p class="empty-sub">Toque em "+ Adicionar" ou use "Reparar categorias" acima.</p></div>';
   wrapCats.querySelectorAll('.btn-editar-cat').forEach(btn => btn.addEventListener('click', () => abrirModalCategoria(state.categorias.find(c => c.ID === btn.dataset.id))));
   wrapCats.querySelectorAll('.btn-excluir-cat').forEach(btn => btn.addEventListener('click', () => excluirCategoria(btn.dataset.id)));
 }
@@ -2087,7 +2225,6 @@ document.getElementById('btnAddCategoria').addEventListener('click', () => abrir
 document.getElementById('categoriaCancelar').addEventListener('click', () => document.getElementById('modalCategoria').classList.add('hidden'));
 function abrirModalCategoria(categoria) {
   document.getElementById('categoriaId').value = categoria ? categoria.ID : '';
-  document.getElementById('categoriaTipo').value = categoria ? categoria.Tipo : 'Despesa';
   document.getElementById('categoriaNome').value = categoria ? categoria.Categoria : '';
   document.getElementById('categoriaSubnome').value = categoria ? categoria.Subcategoria : '';
   document.getElementById('categoriaOrcamento').value = categoria && Number(categoria.OrcamentoMensal) > 0 ? categoria.OrcamentoMensal : '';
@@ -2102,7 +2239,7 @@ document.getElementById('categoriaSalvar').addEventListener('click', async () =>
   const nome = document.getElementById('categoriaNome').value.trim();
   if (!nome) { showToast('Informe o nome da categoria.', 'error'); return; }
   const payload = {
-    Tipo: document.getElementById('categoriaTipo').value, Categoria: nome,
+    Categoria: nome,
     Subcategoria: document.getElementById('categoriaSubnome').value.trim(),
     Icone: document.getElementById('btnEscolherIconeCategoria').textContent.trim(),
     Cor: state.categoriaCorSelecionada,
@@ -2128,7 +2265,7 @@ document.getElementById('categoriaSalvar').addEventListener('click', async () =>
   finally { showLoading(false); }
 });
 async function excluirCategoria(id) {
-  const ok = await confirmarAcao('Excluir categoria?', 'Transações já lançadas com essa categoria manterão o registro histórico, mas ela deixará de aparecer para novos lançamentos.');
+  const ok = await confirmarAcao('Excluir categoria?', 'Os gastos já lançados com essa categoria manterão o registro histórico, mas ela deixará de aparecer para novos lançamentos.');
   if (!ok) return;
   showLoading(true);
   try {
@@ -2140,56 +2277,176 @@ async function excluirCategoria(id) {
 }
 
 /* ============================================================================
-   12. PWA — Service Worker + Instalação (Fase 3 · Item 3)
-   ============================================================================
-   Registro do Service Worker: só é possível quando a página é servida via
-   HTTPS ou via localhost — navegadores bloqueiam Service Workers em páginas
-   abertas diretamente do disco (file://) por motivo de segurança. Por isso,
-   este registro é protegido com verificações de suporte e falha
-   silenciosamente (sem quebrar o app) quando o ambiente não permite.
+   12. GASTOS RECORRENTES
    ============================================================================ */
-function pwaSuportado() {
-  return 'serviceWorker' in navigator && (window.isSecureContext || location.protocol === 'https:');
+function popularSelectCategoriaRecorrente() {
+  const sel = document.getElementById('recorrenteCategoria');
+  const categoriasAtivas = state.categorias.filter(c => c.Ativo === true || c.Ativo === 'TRUE' || c.Ativo === 'true');
+  const nomesUnicos = [...new Set(categoriasAtivas.map(c => c.Categoria))];
+  sel.innerHTML = nomesUnicos.map(nome => {
+    const item = categoriasAtivas.find(c => c.Categoria === nome);
+    const icone = item && item.Icone ? item.Icone + ' ' : '';
+    return `<option value="${escapeHtml(nome)}">${icone}${escapeHtml(nome)}</option>`;
+  }).join('') || '<option value="">Nenhuma categoria cadastrada</option>';
+  popularSelectSubcategoriaRecorrente();
 }
-function pwaJaInstalado() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+function popularSelectSubcategoriaRecorrente() {
+  const categoriaSelecionada = document.getElementById('recorrenteCategoria').value;
+  const sel = document.getElementById('recorrenteSubcategoria');
+  const subs = state.categorias.filter(c => c.Categoria === categoriaSelecionada).map(c => c.Subcategoria).filter(Boolean);
+  sel.innerHTML = subs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('') || '<option value="">—</option>';
 }
+document.getElementById('recorrenteCategoria').addEventListener('change', popularSelectSubcategoriaRecorrente);
+
+function popularChipsPessoasRecorrente() {
+  const wrap = document.getElementById('recorrentePessoaChips');
+  const pessoasAtivas = state.pessoas.filter(p => p.Ativo === true || p.Ativo === 'TRUE' || p.Ativo === 'true');
+  wrap.innerHTML = pessoasAtivas.map(p => `
+    <button type="button" data-pessoa-id="${p.ID}" class="chip-pessoa-rec chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm" style="border-color:${p.Cor}55">
+      <span class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style="background:${p.Cor}30;color:${p.Cor}">${p.Iniciais || '?'}</span>${escapeHtml(p.Nome)}
+    </button>`).join('') || '<p class="text-xs text-muted">Cadastre pessoas em Configurações.</p>';
+  wrap.querySelectorAll('.chip-pessoa-rec').forEach(btn => btn.addEventListener('click', () => {
+    state.rec.pessoaId = btn.dataset.pessoaId;
+    wrap.querySelectorAll('.chip-pessoa-rec').forEach(b => {
+      const ativo = b.dataset.pessoaId === state.rec.pessoaId;
+      b.style.background = ativo ? (state.pessoas.find(p => p.ID === b.dataset.pessoaId) || {}).Cor + '25' : '';
+      b.classList.toggle('brand-ring', ativo);
+    });
+  }));
+}
+
+function renderListaRecorrentesConfig() {
+  const wrap = document.getElementById('listaRecorrentesConfig');
+  if (!wrap) return;
+  wrap.innerHTML = state.recorrentes.length ? state.recorrentes.map(r => {
+    const pessoa = state.pessoas.find(p => p.ID === r.PessoaId);
+    const catObj = state.categorias.find(c => c.Categoria === r.Categoria);
+    const ativo = r.Ativo === true || r.Ativo === 'TRUE' || r.Ativo === 'true';
+    return `<div class="flex items-center gap-2 surface-2 rounded-lg px-3 py-2">
+      <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${(catObj?catObj.Cor:'#64748B')}25;">${catObj ? catObj.Icone : '🔁'}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm truncate">${escapeHtml(r.Descricao)} <span class="text-muted">· ${formatBRL(r.Valor)}</span></p>
+        <p class="text-[10px] text-muted truncate">${pessoa ? escapeHtml(pessoa.Nome) : ''} · dia ${r.DiaVencimento}${ativo ? '' : ' · inativo'}</p>
+      </div>
+      <button data-id="${r.ID}" class="btn-editar-rec text-xs font-semibold brand-text px-1.5">Editar</button>
+      <button data-id="${r.ID}" class="btn-excluir-rec text-xs font-semibold px-1.5" style="color:#f87171;">Excluir</button>
+    </div>`;
+  }).join('') : '<div class="empty-state"><div class="empty-icon">🔁</div><p class="empty-title">Nenhum gasto recorrente cadastrado</p><p class="empty-sub">Toque em "+ Adicionar" para cadastrar uma conta fixa ou assinatura.</p></div>';
+  wrap.querySelectorAll('.btn-editar-rec').forEach(btn => btn.addEventListener('click', () => abrirModalRecorrente(state.recorrentes.find(r => r.ID === btn.dataset.id))));
+  wrap.querySelectorAll('.btn-excluir-rec').forEach(btn => btn.addEventListener('click', () => excluirRecorrente(btn.dataset.id)));
+}
+
+document.getElementById('btnAddRecorrente').addEventListener('click', () => abrirModalRecorrente(null));
+document.getElementById('recorrenteCancelar').addEventListener('click', () => document.getElementById('modalRecorrente').classList.add('hidden'));
+function abrirModalRecorrente(rec) {
+  document.getElementById('recorrenteId').value = rec ? rec.ID : '';
+  document.getElementById('recorrenteDescricao').value = rec ? rec.Descricao : '';
+  document.getElementById('recorrenteValor').value = rec ? rec.Valor : '';
+  document.getElementById('recorrenteMetodo').value = rec ? (rec.MetodoPagamento || 'Pix') : 'Pix';
+  document.getElementById('recorrenteDia').value = rec ? rec.DiaVencimento : 5;
+  document.getElementById('recorrenteAtivo').checked = rec ? (rec.Ativo === true || rec.Ativo === 'TRUE' || rec.Ativo === 'true') : true;
+  state.rec.pessoaId = rec ? rec.PessoaId : null;
+  popularChipsPessoasRecorrente();
+  popularSelectCategoriaRecorrente();
+  if (rec) {
+    setTimeout(() => {
+      document.getElementById('recorrenteCategoria').value = rec.Categoria || '';
+      popularSelectSubcategoriaRecorrente();
+      document.getElementById('recorrenteSubcategoria').value = rec.Subcategoria || '';
+      document.querySelectorAll('.chip-pessoa-rec').forEach(b => b.classList.toggle('brand-ring', b.dataset.pessoaId === state.rec.pessoaId));
+    }, 0);
+  }
+  document.getElementById('modalRecorrente').classList.remove('hidden');
+}
+document.getElementById('recorrenteSalvar').addEventListener('click', async () => {
+  const id = document.getElementById('recorrenteId').value;
+  const descricao = document.getElementById('recorrenteDescricao').value.trim();
+  if (!descricao) { showToast('Informe a descrição do gasto recorrente.', 'error'); return; }
+  if (!state.rec.pessoaId) { showToast('Selecione quem paga este gasto recorrente.', 'error'); return; }
+  const pessoa = state.pessoas.find(p => p.ID === state.rec.pessoaId) || {};
+  const categoriaSelecionada = document.getElementById('recorrenteCategoria').value;
+  const subcategoriaSelecionada = document.getElementById('recorrenteSubcategoria').value;
+  const catObj = state.categorias.find(c => c.Categoria === categoriaSelecionada && c.Subcategoria === subcategoriaSelecionada);
+  const payload = {
+    Descricao: descricao,
+    Valor: parseFloat(document.getElementById('recorrenteValor').value) || 0,
+    PessoaId: state.rec.pessoaId, PessoaNome: pessoa.Nome || '',
+    CategoriaId: catObj ? catObj.ID : '', Categoria: categoriaSelecionada, Subcategoria: subcategoriaSelecionada,
+    MetodoPagamento: document.getElementById('recorrenteMetodo').value,
+    DiaVencimento: parseInt(document.getElementById('recorrenteDia').value, 10) || 1,
+    Ativo: document.getElementById('recorrenteAtivo').checked
+  };
+  showLoading(true);
+  try {
+    if (id) {
+      payload.ID = id;
+      const resultado = await writeAction('updateRecorrente', payload, () => { const idx = state.recorrentes.findIndex(r => r.ID === id); if (idx > -1) state.recorrentes[idx] = { ...state.recorrentes[idx], ...payload }; });
+      if (resultado.ok) { const idx = state.recorrentes.findIndex(r => r.ID === id); if (idx > -1) state.recorrentes[idx] = resultado.data; }
+    } else {
+      const tempId = 'temp_' + Date.now();
+      const resultado = await writeAction('addRecorrente', payload, () => { state.recorrentes.push({ ...payload, ID: tempId }); });
+      if (resultado.ok) state.recorrentes.push(resultado.data);
+    }
+    saveCache();
+    document.getElementById('modalRecorrente').classList.add('hidden');
+    renderListaRecorrentesConfig();
+    showToast('Gasto recorrente salvo com sucesso!', 'success');
+  } catch (err) { showToast('Erro: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+});
+async function excluirRecorrente(id) {
+  const ok = await confirmarAcao('Excluir gasto recorrente?', 'Os lançamentos já gerados por ele permanecem no extrato — apenas a geração automática de novos meses será interrompida.');
+  if (!ok) return;
+  showLoading(true);
+  try {
+    await writeAction('deleteRecorrente', { ID: id }, () => { state.recorrentes = state.recorrentes.filter(r => r.ID !== id); });
+    saveCache(); renderListaRecorrentesConfig();
+    showToast('Gasto recorrente excluído.', 'success');
+  } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
+  finally { showLoading(false); }
+}
+document.getElementById('btnGerarRecorrentesAgora').addEventListener('click', async () => {
+  const resultEl = document.getElementById('gerarRecorrentesResultado');
+  resultEl.textContent = 'Verificando…'; resultEl.style.color = 'var(--text-secondary)';
+  showLoading(true, 'Verificando gastos recorrentes…');
+  try {
+    const data = await apiPost('gerarRecorrentesAgora', {});
+    resultEl.textContent = data.criados > 0 ? `✅ ${data.criados} lançamento(s) criado(s).` : 'ℹ️ Nenhum lançamento novo era necessário — tudo já está em dia.';
+    resultEl.style.color = data.criados > 0 ? 'var(--color-success)' : 'var(--text-secondary)';
+    await carregarDadosIniciais(true);
+    if (state.currentView === 'dashboard') renderDashboard();
+    if (state.currentView === 'extrato') renderExtrato();
+  } catch (err) { resultEl.textContent = '❌ Falha: ' + err.message; resultEl.style.color = 'var(--color-danger)'; }
+  finally { showLoading(false); }
+});
+
+/* ============================================================================
+   13. PWA — Service Worker e instalação
+   ============================================================================ */
+function pwaSuportado() { return 'serviceWorker' in navigator && (window.isSecureContext || location.protocol === 'https:'); }
+function pwaJaInstalado() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    if (!pwaSuportado()) {
-      console.info('Service Worker não registrado: este contexto não é seguro (HTTPS/localhost). O app continua funcionando normalmente, apenas sem os recursos de instalação/offline do PWA.');
-      return;
-    }
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('Falha ao registrar Service Worker (o app continua funcionando normalmente):', err.message);
-    });
+    if (!pwaSuportado()) { console.info('Service Worker não registrado: este contexto não é seguro (é necessário HTTPS ou localhost).'); return; }
+    navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Falha ao registrar o Service Worker:', err.message));
   });
 }
-
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   state.pwaDeferredPrompt = e;
-  if (!localStorage.getItem(STORAGE_KEYS.PWA_BANNER_DISMISSED)) {
-    document.getElementById('installBanner').classList.remove('hidden');
-  }
+  if (!localStorage.getItem(STORAGE_KEYS.PWA_BANNER_DISMISSED)) document.getElementById('installBanner').classList.remove('hidden');
   atualizarPainelInstalacaoPWA();
 });
-
 window.addEventListener('appinstalled', () => {
   state.pwaDeferredPrompt = null;
   document.getElementById('installBanner').classList.add('hidden');
   showToast('Aplicativo instalado com sucesso! 🎉', 'success');
   atualizarPainelInstalacaoPWA();
 });
-
-document.getElementById('btnInstallBannerFechar').addEventListener('click', () => {
-  document.getElementById('installBanner').classList.add('hidden');
-  localStorage.setItem(STORAGE_KEYS.PWA_BANNER_DISMISSED, '1');
-});
+document.getElementById('btnInstallBannerFechar').addEventListener('click', () => { document.getElementById('installBanner').classList.add('hidden'); localStorage.setItem(STORAGE_KEYS.PWA_BANNER_DISMISSED, '1'); });
 document.getElementById('btnInstallBannerAceitar').addEventListener('click', () => dispararPromptInstalacao());
 document.getElementById('btnInstalarPWA').addEventListener('click', () => dispararPromptInstalacao());
-
 async function dispararPromptInstalacao() {
   if (!state.pwaDeferredPrompt) return;
   state.pwaDeferredPrompt.prompt();
@@ -2199,49 +2456,31 @@ async function dispararPromptInstalacao() {
   document.getElementById('installBanner').classList.add('hidden');
   atualizarPainelInstalacaoPWA();
 }
-
 function atualizarPainelInstalacaoPWA() {
   const statusEl = document.getElementById('pwaStatusTexto');
   const btnEl = document.getElementById('btnInstalarPWA');
   const manualEl = document.getElementById('pwaInstrucoesManual');
   if (!statusEl) return;
-
-  if (pwaJaInstalado()) {
-    statusEl.textContent = '✅ Você já está usando o app instalado.';
-    btnEl.classList.add('hidden');
-    manualEl.classList.add('hidden');
-    return;
-  }
-
-  if (state.pwaDeferredPrompt) {
-    statusEl.textContent = 'Seu navegador suporta instalação automática. Toque no botão abaixo:';
-    btnEl.classList.remove('hidden');
-    manualEl.classList.add('hidden');
-    return;
-  }
-
+  if (pwaJaInstalado()) { statusEl.textContent = '✅ Você já está usando o aplicativo instalado.'; btnEl.classList.add('hidden'); manualEl.classList.add('hidden'); return; }
+  if (state.pwaDeferredPrompt) { statusEl.textContent = 'Seu navegador aceita instalação automática. Toque no botão abaixo:'; btnEl.classList.remove('hidden'); manualEl.classList.add('hidden'); return; }
   if (!pwaSuportado()) {
-    statusEl.innerHTML = '⚠️ A instalação automática requer que o app seja acessado via <strong>HTTPS</strong> (ex: GitHub Pages, Google Sites). Ao abrir o arquivo localmente (file://), a instalação completa não fica disponível — mas o app continua funcionando normalmente.';
-    btnEl.classList.add('hidden');
-    manualEl.classList.remove('hidden');
-    manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> botão de compartilhar 🔗 → "Adicionar à Tela de Início".<br>Isso cria um ícone de acesso rápido, mesmo sem o recurso completo de offline do Service Worker.';
+    statusEl.innerHTML = '⚠️ A instalação automática exige HTTPS (por exemplo, GitHub Pages). Ao abrir o arquivo localmente, use a alternativa manual abaixo.';
+    btnEl.classList.add('hidden'); manualEl.classList.remove('hidden');
+    manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> toque no menu ⋮ e depois em "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> toque em compartilhar 🔗 e depois em "Adicionar à Tela de Início".';
     return;
   }
-
-  statusEl.textContent = 'Aguardando o navegador liberar a opção de instalação (pode levar alguns segundos após carregar o app).';
-  btnEl.classList.add('hidden');
-  manualEl.classList.remove('hidden');
-  manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> botão de compartilhar 🔗 → "Adicionar à Tela de Início".';
+  statusEl.textContent = 'Aguardando o navegador liberar a opção de instalação.';
+  btnEl.classList.add('hidden'); manualEl.classList.remove('hidden');
+  manualEl.innerHTML = '<strong>Alternativa no celular:</strong><br>• <strong>Android (Chrome):</strong> toque no menu ⋮ e depois em "Adicionar à tela inicial".<br>• <strong>iPhone (Safari):</strong> toque em compartilhar 🔗 e depois em "Adicionar à Tela de Início".';
 }
 
 /* ============================================================================
-   13. INICIALIZAÇÃO
+   14. INICIALIZAÇÃO
    ============================================================================ */
 (async function init() {
   applyTheme(state.theme);
   aplicarVisibilidadeWidgets();
   document.getElementById('apiUrlInput').value = state.apiUrl;
-  document.querySelectorAll('.seg-tipo')[0].classList.add('active-seg');
   document.querySelectorAll('.seg-status')[0].classList.add('active-seg');
   document.querySelectorAll('.seg-essencial')[0].classList.add('active-seg');
   await carregarDadosIniciais();
