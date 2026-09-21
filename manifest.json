@@ -1,7 +1,7 @@
 {
-  "name": "Finanças do Casal",
-  "short_name": "Finanças",
-  "description": "Sistema pessoal de gestão financeira do casal, com sincronização via Google Sheets.",
+  "name": "Controle de Gastos",
+  "short_name": "Gastos",
+  "description": "Registrador pessoal de gastos, simples e direto, com sincronização via Google Sheets.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

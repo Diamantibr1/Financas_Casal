@@ -1,26 +1,21 @@
 /**
  * ============================================================================
- *  SERVICE WORKER — Finanças do Casal (PWA)
- *  Fase 3 · Item 3: Empacotamento como PWA instalável
+ *  SERVICE WORKER — Controle de Gastos (PWA)
+ *  Atualização (set/2026): versão v5 — acompanha a reorganização do
+ *  extrato (agrupamento por dia, data/hora, menu de ações rápidas) e o
+ *  novo módulo de gastos recorrentes. O incremento de versão abaixo força
+ *  a limpeza total do cache antigo, para que a atualização apareça já na
+ *  próxima abertura do aplicativo instalado.
  * ============================================================================
  *
- *  Responsabilidade deste Service Worker:
- *   - Cachear o "app shell" (HTML, ícones e bibliotecas de CDN) para que o
- *     aplicativo abra instantaneamente e continue funcionando mesmo sem
- *     internet, ou com internet instável.
- *   - NUNCA cachear chamadas à API do Google Apps Script — essas sempre
- *     devem ir direto à rede, pois o app já possui sua própria lógica de
- *     cache/fila offline (LocalStorage) específica para dados financeiros,
- *     implementada desde a v1.1. Este Service Worker cuida apenas do
- *     "invólucro" do aplicativo (a interface), não dos dados.
- *
- *  Estratégia de cache: "Cache First, fallback to Network" para o app shell,
- *  e "Network Only" (sempre rede, nunca cache) para qualquer requisição que
- *  contenha "script.google.com" (a API).
+ *  COMO ATUALIZAR O APLICATIVO DAQUI PARA FRENTE:
+ *  Sempre que o index.html for alterado de forma significativa,
+ *  incremente o número da linha abaixo (por exemplo, de "v5" para "v6").
  * ============================================================================
  */
 
-const CACHE_NAME = 'financas-casal-shell-v1';
+const CACHE_VERSION = 'v5'; // incrementar a cada atualização relevante
+const CACHE_NAME = `controle-gastos-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_URLS = [
   './index.html',
@@ -47,25 +42,35 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((nomes) =>
       Promise.all(
+        // Remove qualquer cache de versão anterior, incluindo os nomes
+        // usados antes da simplificação do app (financas-casal-shell-*),
+        // garantindo que nada desatualizado permaneça guardado.
         nomes
-          .filter((nome) => nome !== CACHE_NAME)
+          .filter((nome) => (nome.startsWith('controle-gastos-shell-') || nome.startsWith('financas-casal-shell-')) && nome !== CACHE_NAME)
           .map((nome) => caches.delete(nome))
       )
     )
   );
-  self.clients.claim();
+  event.waitUntil(
+    self.clients.claim().then(() => {
+      return self.clients.matchAll({ type: 'window' }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION }));
+      });
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // Regra crítica: nunca interceptar/cachear chamadas à API financeira.
+  // Regra crítica: nunca interceptar nem armazenar em cache as chamadas à API.
   if (url.includes('script.google.com')) {
     return;
   }
 
   // Bibliotecas de terceiros (Tailwind, Chart.js, Google Fonts):
-  // "stale-while-revalidate" — responde rápido com cache, atualiza em segundo plano.
+  // estratégia "obsoleto-mas-revalidado" — responde rápido com o cache e
+  // atualiza em segundo plano para a próxima visita.
   if (url.includes('cdn.tailwindcss.com') || url.includes('cdn.jsdelivr.net') || url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
@@ -85,8 +90,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell (HTML, ícones, manifest): "cache first", com atualização em
-  // segundo plano e fallback de rede se não estiver em cache.
+  // Interface do aplicativo (HTML, ícones, manifesto): cache em primeiro
+  // lugar, com atualização em segundo plano e retorno à rede quando não
+  // houver nada em cache.
   event.respondWith(
     caches.match(event.request).then((cachedResp) => {
       const fetchPromise = fetch(event.request)
